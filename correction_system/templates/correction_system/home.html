@@ -1,0 +1,173 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}首页 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-12 text-center mb-5">
+        <h1 class="display-4 fw-bold" style="color: var(--primary-color); text-shadow: 0 2px 10px rgba(67, 97, 238, 0.2);">欢迎使用智学导师</h1>
+        <p class="lead mt-3">基于DeepSeek AI技术，为教育赋能，让学习更高效</p>
+        <div class="mt-4">
+            <a href="{% url 'solve_problem' %}" class="btn btn-primary me-2 px-4 py-2">
+                <i class="fas fa-rocket me-2"></i>立即开始
+            </a>
+            <a href="#features" class="btn btn-outline-secondary px-4 py-2">
+                <i class="fas fa-info-circle me-2"></i>了解更多
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-md-5 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center">
+                <i class="fas fa-lightbulb me-2" style="font-size: 1.2rem;"></i>
+                <h5 class="mb-0">题目解答</h5>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p>上传题目（图片或文字），系统将自动给出解答。</p>
+                <ul>
+                    <li>文本题目 - 直接输入题目内容</li>
+                    <li>图片题目 - 上传题目图片</li>
+                </ul>
+                <p>系统会基于DeepSeek AI技术提供详细的解题思路和答案。</p>
+                <div class="mt-auto">
+                    <a href="{% url 'solve_problem' %}" class="btn btn-primary w-100">
+                        <i class="fas fa-angle-right me-2"></i>开始使用
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-5 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center">
+                <i class="fas fa-check-double me-2" style="font-size: 1.2rem;"></i>
+                <h5 class="mb-0">作业批改</h5>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p>上传作业图片，系统将自动批改并给出详细反馈。</p>
+                <ul>
+                    <li>自动识别题目内容</li>
+                    <li>智能评判答案正确性</li>
+                    <li>给出详细的批改意见</li>
+                    <li>提供总体评分和改进建议</li>
+                </ul>
+                <div class="mt-auto">
+                    <a href="{% url 'correct_homework' %}" class="btn btn-primary w-100">
+                        <i class="fas fa-angle-right me-2"></i>开始使用
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="features" class="row justify-content-center mt-5 mb-4 animation-fade-in">
+    <div class="col-12 text-center mb-4">
+        <h2 class="fs-2 mb-4" style="color: var(--secondary-color);">为什么选择我们的系统？</h2>
+        <div class="d-flex justify-content-center">
+            <div style="width: 80px; height: 4px; background: linear-gradient(90deg, transparent, var(--primary-color), transparent); border-radius: 4px;"></div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card h-100 text-center">
+            <div class="card-body">
+                <div class="icon-feature mb-3">
+                    <i class="fas fa-bolt" style="font-size: 1.6rem;"></i>
+                </div>
+                <h5>高效快速</h5>
+                <p class="card-text">几秒钟内完成解答和批改，节省大量时间</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card h-100 text-center">
+            <div class="card-body">
+                <div class="icon-feature mb-3">
+                    <i class="fas fa-chart-line" style="font-size: 1.6rem;"></i>
+                </div>
+                <h5>智能分析</h5>
+                <p class="card-text">深度分析题目和答案，提供洞察性反馈</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card h-100 text-center">
+            <div class="card-body">
+                <div class="icon-feature mb-3">
+                    <i class="fas fa-shield-alt" style="font-size: 1.6rem;"></i>
+                </div>
+                <h5>准确可靠</h5>
+                <p class="card-text">基于先进AI技术，确保解答和批改的准确性</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card h-100 text-center">
+            <div class="card-body">
+                <div class="icon-feature mb-3">
+                    <i class="fas fa-user-graduate" style="font-size: 1.6rem;"></i>
+                </div>
+                <h5>个性化指导</h5>
+                <p class="card-text">根据学生作业情况，提供针对性的改进建议</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center animation-fade-in mb-5">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h3 class="fs-4 mb-3">准备好开始使用了吗？</h3>
+                        <p class="mb-md-0">立即体验智学导师，提高学习效率和教学质量！</p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <a href="{% url 'solve_problem' %}" class="btn btn-primary px-4">
+                            <i class="fas fa-paper-plane me-2"></i>立即开始
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 滚动平滑效果
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+                behavior: 'smooth'
+            });
+        });
+    });
+    
+    // 卡片交互效果
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-10px)';
+            this.style.boxShadow = '0 15px 30px rgba(0, 0, 0, 0.2)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = '';
+            this.style.boxShadow = '';
+        });
+    });
+</script>
+{% endblock %} 

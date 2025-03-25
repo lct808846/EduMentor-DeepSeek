@@ -1,0 +1,327 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}作业批改 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-12 mb-4 text-center">
+        <h2 class="fs-2 mb-3" style="color: var(--primary-color); text-shadow: 0 2px 10px rgba(67, 97, 238, 0.2);">作业批改</h2>
+        <p class="text-muted">上传作业图片，系统将自动批改并给出详细反馈与评分</p>
+        <div class="d-flex justify-content-center mt-3">
+            <div style="width: 50px; height: 3px; background: linear-gradient(90deg, transparent, var(--primary-color), transparent); border-radius: 4px;"></div>
+        </div>
+    </div>
+    
+    <div class="col-md-10 mb-4">
+        <div class="card">
+            <div class="card-header d-flex align-items-center">
+                <i class="fas fa-file-upload me-2" style="font-size: 1.2rem;"></i>
+                <h5 class="mb-0">上传作业</h5>
+            </div>
+            <div class="card-body">
+                <form id="homeworkForm" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.image.id_for_label }}" class="form-label fw-bold">
+                            <i class="fas fa-cloud-upload-alt me-2"></i>{{ form.image.label }}
+                        </label>
+                        {{ form.image }}
+                        <div class="form-text">支持的格式：JPG, PNG, JPEG，图片越清晰，批改效果越好</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div id="imagePreview" class="mt-3" style="display: none;">
+                            <div class="card">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0">作业预览</h6>
+                                </div>
+                                <div class="card-body text-center p-3">
+                                    <img id="previewImg" src="" alt="作业预览" class="img-fluid" style="max-height: 300px; border-radius: 5px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info d-flex align-items-center" role="alert">
+                        <i class="fas fa-info-circle me-2" style="font-size: 1.2rem;"></i>
+                        <div>
+                            提示：系统会先使用Tesseract OCR识别图片中的文字，然后基于识别结果进行批改，请确保图片清晰可辨。
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check-circle me-2"></i>批改作业
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 加载动画 -->
+    <div class="col-md-10 loading-spinner" id="loadingSpinner">
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+        </div>
+        <p class="text-center mt-3">正在使用DeepSeek AI批改作业，请稍候...</p>
+        <div class="progress mt-3" style="height: 8px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+        </div>
+    </div>
+    
+    <!-- 批改结果区域 -->
+    <div class="col-md-10 correction-container" id="correctionContainer" style="display: none;">
+        <div class="row">
+            <div class="col-12 mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h3 class="fs-4 mb-0">
+                        <i class="fas fa-clipboard-check me-2 text-success"></i>批改结果
+                    </h3>
+                    <div class="score-badge" id="scoreBadge"></div>
+                </div>
+                <hr>
+            </div>
+            
+            <!-- OCR 识别结果预览区域 -->
+            <div class="col-12 mb-3" id="ocrResultContainer" style="display: none;">
+                <div class="card">
+                    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">OCR识别文本</h6>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleOcrResult()">
+                            <i class="fas fa-eye-slash me-1"></i>隐藏
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="ocrResultText" class="p-2 bg-light rounded" style="max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12 mb-3">
+                <div class="card">
+                    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">批改详情</h6>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="copyToClipboard()">
+                                <i class="fas fa-copy me-1"></i>复制结果
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="correctionContent" class="p-3 bg-light rounded markdown-content"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12">
+                <div class="d-flex justify-content-end">
+                    <button class="btn btn-success me-2" onclick="printResult()">
+                        <i class="fas fa-print me-2"></i>打印结果
+                    </button>
+                    <button class="btn btn-primary" onclick="window.location.reload()">
+                        <i class="fas fa-redo me-2"></i>批改新作业
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 添加Markdown格式转换库
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"><\/script>');
+    
+    $(document).ready(function() {
+        // 图片预览
+        $('#id_image').change(function() {
+            if (this.files && this.files[0]) {
+                var reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    $('#previewImg').attr('src', e.target.result);
+                    $('#imagePreview').show();
+                }
+                
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+        
+        // 进度条动画
+        function animateProgressBar() {
+            let width = 0;
+            const progressBar = $('.progress-bar');
+            const interval = setInterval(function() {
+                if (width >= 95) {
+                    clearInterval(interval);
+                } else {
+                    width += 5;
+                    progressBar.css('width', width + '%');
+                }
+            }, 500);
+            return interval;
+        }
+        
+        // Markdown转HTML函数
+        function convertMarkdownToHtml(markdown) {
+            const converter = new showdown.Converter({
+                tables: true,
+                tasklists: true,
+                strikethrough: true,
+                openLinksInNewWindow: true
+            });
+            return converter.makeHtml(markdown);
+        }
+        
+        // 表单提交
+        $('#homeworkForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            // 显示加载动画
+            $('#loadingSpinner').show();
+            $('#correctionContainer').hide();
+            
+            // 开始进度条动画
+            const progressInterval = animateProgressBar();
+            
+            // 提交表单数据
+            $.ajax({
+                url: '{% url "api_correct_homework" %}',
+                type: 'POST',
+                data: new FormData(this),
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    // 隐藏加载动画
+                    $('#loadingSpinner').hide();
+                    clearInterval(progressInterval);
+                    
+                    if (response.status === 'success') {
+                        // 获取批改结果
+                        const correction = response.correction.correction_result;
+                        
+                        // 检查OCR提取的文本
+                        if (correction.includes("Tesseract OCR识别文本结果:")) {
+                            const ocrStartMarker = "Tesseract OCR识别文本结果:";
+                            const ocrEndMarker = "---批改结果开始---";
+                            
+                            const ocrStartIndex = correction.indexOf(ocrStartMarker) + ocrStartMarker.length;
+                            const ocrEndIndex = correction.indexOf(ocrEndMarker);
+                            
+                            if (ocrStartIndex > 0 && ocrEndIndex > ocrStartIndex) {
+                                // 提取OCR文本和批改内容
+                                const ocrText = correction.substring(ocrStartIndex, ocrEndIndex).trim();
+                                const resultText = correction.substring(ocrEndIndex + ocrEndMarker.length).trim();
+                                
+                                // 显示OCR文本
+                                $('#ocrResultText').text(ocrText);
+                                $('#ocrResultContainer').show();
+                                
+                                // 转换批改内容为HTML并显示
+                                const htmlContent = convertMarkdownToHtml(resultText);
+                                $('#correctionContent').html(htmlContent);
+                            } else {
+                                // 如果无法正确分割，直接显示全部内容
+                                const htmlContent = convertMarkdownToHtml(correction);
+                                $('#correctionContent').html(htmlContent);
+                            }
+                        } else {
+                            // 无OCR内容，直接显示
+                            const htmlContent = convertMarkdownToHtml(correction);
+                            $('#correctionContent').html(htmlContent);
+                        }
+                        
+                        // 显示分数
+                        let score = response.correction.score;
+                        let scoreClass = 'bg-danger';
+                        let scoreText = '不及格';
+                        
+                        if (score >= 90) {
+                            scoreClass = 'bg-success';
+                            scoreText = '优秀';
+                        } else if (score >= 80) {
+                            scoreClass = 'bg-primary';
+                            scoreText = '良好';
+                        } else if (score >= 70) {
+                            scoreClass = 'bg-info';
+                            scoreText = '中等';
+                        } else if (score >= 60) {
+                            scoreClass = 'bg-warning';
+                            scoreText = '及格';
+                        }
+                        
+                        $('#scoreBadge').html(`<span class="badge ${scoreClass} fs-5">${score} 分 (${scoreText})</span>`);
+                        
+                        // 显示结果容器
+                        $('#correctionContainer').fadeIn(300);
+                        
+                        // 滚动到结果区域
+                        $('html, body').animate({
+                            scrollTop: $('#correctionContainer').offset().top - 100
+                        }, 500);
+                    } else {
+                        alert('批改失败：' + response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    // 隐藏加载动画
+                    $('#loadingSpinner').hide();
+                    clearInterval(progressInterval);
+                    alert('发生错误：' + error);
+                }
+            });
+        });
+    });
+    
+    // 复制结果到剪贴板
+    function copyToClipboard() {
+        const content = document.getElementById('correctionContent').innerText;
+        navigator.clipboard.writeText(content).then(function() {
+            // 显示复制成功提示
+            alert('已复制到剪贴板');
+        }, function(err) {
+            console.error('复制失败: ', err);
+        });
+    }
+    
+    // 切换OCR结果显示/隐藏
+    function toggleOcrResult() {
+        const container = $('#ocrResultContainer');
+        const button = container.find('button');
+        const icon = button.find('i');
+        const resultText = $('#ocrResultText').parent();
+        
+        if (resultText.is(':visible')) {
+            resultText.slideUp(200);
+            icon.removeClass('fa-eye-slash').addClass('fa-eye');
+            button.find('span').text('显示');
+        } else {
+            resultText.slideDown(200);
+            icon.removeClass('fa-eye').addClass('fa-eye-slash');
+            button.find('span').text('隐藏');
+        }
+    }
+    
+    // 打印结果
+    function printResult() {
+        const printContents = document.getElementById('correctionContent').innerHTML;
+        const originalContents = document.body.innerHTML;
+        
+        document.body.innerHTML = `
+            <div style="padding: 20px;">
+                <h1 style="text-align: center; margin-bottom: 20px;">作业批改结果</h1>
+                ${printContents}
+            </div>
+        `;
+        
+        window.print();
+        document.body.innerHTML = originalContents;
+        location.reload();
+    }
+</script>
+{% endblock %} 

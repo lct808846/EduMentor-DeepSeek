@@ -1,0 +1,360 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}题目解答 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-12 mb-4 text-center">
+        <h2 class="fs-2 mb-3" style="color: var(--primary-color); text-shadow: 0 2px 10px rgba(67, 97, 238, 0.2);">题目解答</h2>
+        <p class="text-muted">上传题目（图片或文字），系统将快速解答，解析过程一目了然</p>
+        <div class="d-flex justify-content-center mt-3">
+            <div style="width: 50px; height: 3px; background: linear-gradient(90deg, transparent, var(--primary-color), transparent); border-radius: 4px;"></div>
+        </div>
+    </div>
+    
+    <div class="col-md-10 mb-4">
+        <ul class="nav nav-tabs" id="problemTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text" type="button" role="tab" aria-controls="text" aria-selected="true">
+                    <i class="fas fa-font me-2"></i>文字题目
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="image-tab" data-bs-toggle="tab" data-bs-target="#image" type="button" role="tab" aria-controls="image" aria-selected="false">
+                    <i class="fas fa-image me-2"></i>图片题目
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="problemTabContent">
+            <!-- 文字题目表单 -->
+            <div class="tab-pane fade show active" id="text" role="tabpanel" aria-labelledby="text-tab">
+                <form id="textProblemForm" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="problem_type" value="text">
+                    
+                    <div class="mb-3">
+                        <label for="{{ text_form.text_content.id_for_label }}" class="form-label fw-bold">
+                            <i class="fas fa-pencil-alt me-2"></i>{{ text_form.text_content.label }}
+                        </label>
+                        {{ text_form.text_content }}
+                        <div class="form-text">请输入您需要解答的题目，可以是数学、物理、化学、生物等各类学科问题</div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>获取解答
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- 图片题目表单 -->
+            <div class="tab-pane fade" id="image" role="tabpanel" aria-labelledby="image-tab">
+                <form id="imageProblemForm" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="problem_type" value="image">
+                    
+                    <div class="mb-3">
+                        <label for="{{ image_form.image.id_for_label }}" class="form-label fw-bold">
+                            <i class="fas fa-cloud-upload-alt me-2"></i>{{ image_form.image.label }}
+                        </label>
+                        {{ image_form.image }}
+                        <div class="form-text">支持的格式：JPG, PNG, JPEG，图片越清晰，识别效果越好</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div id="imagePreview" class="mt-3" style="display: none;">
+                            <div class="card">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0">题目预览</h6>
+                                </div>
+                                <div class="card-body text-center p-3">
+                                    <img id="previewImg" src="" alt="题目预览" class="img-fluid" style="max-height: 300px; border-radius: 5px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        系统会先使用Tesseract OCR识别图片中的文字，然后基于识别结果进行解答，请确保图片清晰可辨。
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>获取解答
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 加载动画 -->
+    <div class="col-md-10 loading-spinner" id="loadingSpinner">
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+        </div>
+        <p class="text-center mt-3">正在使用DeepSeek AI解答题目，请稍候...</p>
+        <div class="progress mt-3" style="height: 8px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+        </div>
+    </div>
+    
+    <!-- 解答结果区域 -->
+    <div class="col-md-10 solution-container" id="solutionContainer" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="fs-4 mb-0">
+                <i class="fas fa-lightbulb me-2 text-warning"></i>解答结果
+            </h3>
+            <div>
+                <button class="btn btn-sm btn-outline-primary me-2" onclick="copyToClipboard()">
+                    <i class="fas fa-copy me-1"></i>复制结果
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="printSolution()">
+                    <i class="fas fa-print me-1"></i>打印结果
+                </button>
+            </div>
+        </div>
+        
+        <!-- OCR 识别结果预览区域 -->
+        <div id="ocrResultContainer" class="mb-3" style="display: none;">
+            <div class="card">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">OCR识别文本</h6>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleOcrResult()">
+                        <i class="fas fa-eye-slash me-1"></i>隐藏
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="ocrResultText" class="p-2 bg-light rounded" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="solutionContent" class="p-3 bg-light rounded markdown-content"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 添加Markdown格式转换库
+    // https://github.com/showdownjs/showdown
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"><\/script>');
+    
+    $(document).ready(function() {
+        // 图片预览
+        $('#id_image').change(function() {
+            if (this.files && this.files[0]) {
+                var reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    $('#previewImg').attr('src', e.target.result);
+                    $('#imagePreview').show();
+                }
+                
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+        
+        // 进度条动画
+        function animateProgressBar() {
+            let width = 0;
+            const progressBar = $('.progress-bar');
+            const interval = setInterval(function() {
+                if (width >= 95) {
+                    clearInterval(interval);
+                } else {
+                    width += 5;
+                    progressBar.css('width', width + '%');
+                }
+            }, 500);
+            return interval;
+        }
+        
+        // Markdown转HTML函数
+        function convertMarkdownToHtml(markdown) {
+            const converter = new showdown.Converter({
+                tables: true,
+                tasklists: true,
+                strikethrough: true,
+                openLinksInNewWindow: true
+            });
+            return converter.makeHtml(markdown);
+        }
+        
+        // 文字题目表单提交
+        $('#textProblemForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            // 显示加载动画
+            $('#loadingSpinner').show();
+            $('#solutionContainer').hide();
+            
+            // 开始进度条动画
+            const progressInterval = animateProgressBar();
+            
+            // 提交表单数据
+            $.ajax({
+                url: '{% url "api_solve_problem" %}',
+                type: 'POST',
+                data: new FormData(this),
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    // 隐藏加载动画
+                    $('#loadingSpinner').hide();
+                    clearInterval(progressInterval);
+                    
+                    if (response.status === 'success') {
+                        // 转换Markdown为HTML并显示解答结果
+                        const htmlContent = convertMarkdownToHtml(response.solution);
+                        $('#solutionContent').html(htmlContent);
+                        $('#solutionContainer').fadeIn(300);
+                        
+                        // 滚动到结果区域
+                        $('html, body').animate({
+                            scrollTop: $('#solutionContainer').offset().top - 100
+                        }, 500);
+                    } else {
+                        alert('获取解答失败：' + response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    // 隐藏加载动画
+                    $('#loadingSpinner').hide();
+                    clearInterval(progressInterval);
+                    alert('发生错误：' + error);
+                }
+            });
+        });
+        
+        // 图片题目表单提交
+        $('#imageProblemForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            // 显示加载动画
+            $('#loadingSpinner').show();
+            $('#solutionContainer').hide();
+            
+            // 开始进度条动画
+            const progressInterval = animateProgressBar();
+            
+            // 提交表单数据
+            $.ajax({
+                url: '{% url "api_solve_problem" %}',
+                type: 'POST',
+                data: new FormData(this),
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    // 隐藏加载动画
+                    $('#loadingSpinner').hide();
+                    clearInterval(progressInterval);
+                    
+                    if (response.status === 'success') {
+                        // 获取解答结果
+                        const solution = response.solution;
+                        
+                        // 检查OCR提取的文本
+                        if (solution.includes("Tesseract OCR识别文本结果:")) {
+                            const ocrStartMarker = "Tesseract OCR识别文本结果:";
+                            const ocrEndMarker = "---解答开始---";
+                            
+                            const ocrStartIndex = solution.indexOf(ocrStartMarker) + ocrStartMarker.length;
+                            const ocrEndIndex = solution.indexOf(ocrEndMarker);
+                            
+                            if (ocrStartIndex > 0 && ocrEndIndex > ocrStartIndex) {
+                                // 提取OCR文本和解答内容
+                                const ocrText = solution.substring(ocrStartIndex, ocrEndIndex).trim();
+                                const answerText = solution.substring(ocrEndIndex + ocrEndMarker.length).trim();
+                                
+                                // 显示OCR文本
+                                $('#ocrResultText').text(ocrText);
+                                $('#ocrResultContainer').show();
+                                
+                                // 转换解答内容为HTML并显示
+                                const htmlContent = convertMarkdownToHtml(answerText);
+                                $('#solutionContent').html(htmlContent);
+                            } else {
+                                // 如果无法正确分割，直接显示全部内容
+                                const htmlContent = convertMarkdownToHtml(solution);
+                                $('#solutionContent').html(htmlContent);
+                            }
+                        } else {
+                            // 无OCR内容，直接显示
+                            const htmlContent = convertMarkdownToHtml(solution);
+                            $('#solutionContent').html(htmlContent);
+                        }
+                        
+                        $('#solutionContainer').fadeIn(300);
+                        
+                        // 滚动到结果区域
+                        $('html, body').animate({
+                            scrollTop: $('#solutionContainer').offset().top - 100
+                        }, 500);
+                    } else {
+                        alert('获取解答失败：' + response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    // 隐藏加载动画
+                    $('#loadingSpinner').hide();
+                    clearInterval(progressInterval);
+                    alert('发生错误：' + error);
+                }
+            });
+        });
+    });
+    
+    // 复制结果到剪贴板
+    function copyToClipboard() {
+        const content = document.getElementById('solutionContent').innerText;
+        navigator.clipboard.writeText(content).then(function() {
+            // 显示复制成功提示
+            alert('已复制到剪贴板');
+        }, function(err) {
+            console.error('复制失败: ', err);
+        });
+    }
+    
+    // 打印结果
+    function printSolution() {
+        const printContents = document.getElementById('solutionContent').innerHTML;
+        const originalContents = document.body.innerHTML;
+        
+        document.body.innerHTML = `
+            <div style="padding: 20px;">
+                <h1 style="text-align: center; margin-bottom: 20px;">题目解答结果</h1>
+                ${printContents}
+            </div>
+        `;
+        
+        window.print();
+        document.body.innerHTML = originalContents;
+        location.reload();
+    }
+    
+    // 切换OCR结果显示/隐藏
+    function toggleOcrResult() {
+        const container = $('#ocrResultContainer');
+        const button = container.find('button');
+        const icon = button.find('i');
+        const resultText = $('#ocrResultText').parent();
+        
+        if (resultText.is(':visible')) {
+            resultText.slideUp(200);
+            icon.removeClass('fa-eye-slash').addClass('fa-eye');
+            button.find('span').text('显示');
+        } else {
+            resultText.slideDown(200);
+            icon.removeClass('fa-eye').addClass('fa-eye-slash');
+            button.find('span').text('隐藏');
+        }
+    }
+</script>
+{% endblock %} 
