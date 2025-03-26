@@ -1,4 +1,11 @@
-Django==3.2.25
-Pillow==9.5.0
+Django==4.2.7
+Pillow==10.1.0
+pytesseract==0.3.10
 requests==2.31.0
-python-dotenv==1.0.0 
+python-dotenv==1.0.0
+django-bootstrap5==23.3
+Markdown==3.5.1
+django-crispy-forms==2.1
+crispy-bootstrap5==0.7
+whitenoise==6.6.0
+gunicorn==21.2.0 
