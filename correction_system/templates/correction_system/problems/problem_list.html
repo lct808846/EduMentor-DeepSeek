@@ -1,0 +1,172 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}题目列表 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="container animation-fade-in py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0"><i class="fas fa-book-open me-2 text-primary"></i>题目列表</h3>
+        <a href="{% url 'solve_problem' %}" class="btn" style="background-color: #4e6ef2; color: white;">
+            <i class="fas fa-plus me-1"></i>解答新题目
+        </a>
+    </div>
+    
+    <!-- 搜索和筛选 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" action="{% url 'problem_list' %}" class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label for="searchInput" class="form-label">搜索题目</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0">
+                            <i class="fas fa-search text-muted"></i>
+                        </span>
+                        <input type="text" name="q" id="searchInput" class="form-control border-start-0 ps-0" placeholder="输入关键词..." value="{{ request.GET.q|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label for="typeFilter" class="form-label">题目类型</label>
+                    <select class="form-select" id="typeFilter" name="type">
+                        <option value="">所有类型</option>
+                        <option value="TEXT" {% if selected_type == 'TEXT' %}selected{% endif %}>文本题目</option>
+                        <option value="IMAGE" {% if selected_type == 'IMAGE' %}selected{% endif %}>图片题目</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="statusFilter" class="form-label">解答状态</label>
+                    <select class="form-select" id="statusFilter" name="status">
+                        <option value="">所有状态</option>
+                        <option value="correct" {% if selected_status == 'correct' %}selected{% endif %}>正确</option>
+                        <option value="incorrect" {% if selected_status == 'incorrect' %}selected{% endif %}>错误</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn w-100" style="background-color: #4e6ef2; color: white;">
+                        <i class="fas fa-filter me-1"></i>筛选
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 题目列表 -->
+    <div class="row">
+        {% for problem in problems %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm hover-shadow">
+                <div class="card-header" style="background-color: rgba(78, 110, 242, 0.1);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0 text-truncate" style="max-width: 220px;" title="{{ problem.problem_type|title }} 题目">
+                            {% if problem.problem_type == 'TEXT' %}TEXT题目概念{% else %}图片题目概念{% endif %}
+                        </h5>
+                        <span class="badge {% if problem.is_correct %}bg-success{% else %}bg-danger{% endif %}">
+                            {% if problem.is_correct %}
+                                <i class="fas fa-check me-1"></i>正确
+                            {% else %}
+                                <i class="fas fa-times me-1"></i>错误
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center text-muted small mb-3">
+                        <span><i class="far fa-calendar-alt me-1"></i>{{ problem.created_at|date:"Y-m-d" }}</span>
+                        <span class="badge bg-secondary">关联题目</span>
+                    </div>
+                    
+                    {% if problem.problem_type == 'TEXT' %}
+                        <p class="card-text" style="height: 4.5rem; overflow: hidden;">{{ problem.problem_content|truncatechars:150 }}</p>
+                    {% else %}
+                        <div class="text-center my-2">
+                            <div style="height: 4.5rem; display: flex; align-items: center; justify-content: center;">
+                                <span class="text-muted">
+                                    <i class="fas fa-image fa-2x"></i>
+                                    <p class="small mt-1">图片题目</p>
+                                </span>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent border-top-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'view_problem' problem.id %}" class="btn btn-sm" style="background-color: #4e6ef2; color: white;">
+                            <i class="fas fa-eye me-1"></i>查看详情
+                        </a>
+                        <a href="{% url 'create_knowledge_card' %}?problem_id={{ problem.id }}" class="btn btn-sm btn-outline-warning">
+                            <i class="fas fa-lightbulb me-1"></i>生成卡片
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-info-circle text-muted fa-3x mb-3"></i>
+                    <h5>未找到题目</h5>
+                    <p class="text-muted">{% if request.GET.q or request.GET.type or request.GET.status %}没有符合筛选条件的题目。{% else %}您还没有解答过任何题目。{% endif %}</p>
+                    <a href="{% url 'solve_problem' %}" class="btn mt-2" style="background-color: #4e6ef2; color: white;">
+                        <i class="fas fa-plus me-1"></i>解答新题目
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- 分页 -->
+    {% if problems.has_other_pages %}
+    <nav aria-label="分页导航" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if problems.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ problems.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" aria-label="上一页">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <a class="page-link" href="#" aria-label="上一页">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in problems.paginator.page_range %}
+                {% if problems.number == num %}
+                <li class="page-item active">
+                    <a class="page-link" href="#">{{ num }}</a>
+                </li>
+                {% elif num > problems.number|add:'-3' and num < problems.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if problems.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ problems.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" aria-label="下一页">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <a class="page-link" href="#" aria-label="下一页">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<style>
+.hover-shadow:hover {
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15) !important;
+    transition: box-shadow 0.3s ease-in-out;
+}
+</style>
+{% endblock %} 

@@ -1,0 +1,143 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}编辑个人资料 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-md-8">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'profile' %}">个人资料</a></li>
+                <li class="breadcrumb-item active" aria-current="page">编辑资料</li>
+            </ol>
+        </nav>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-user-edit me-2 text-primary"></i>编辑个人资料</h5>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <div class="row">
+                            <div class="col-md-4 text-center">
+                                {% if user.profile.avatar %}
+                                    <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="img-fluid rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+                                {% else %}
+                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 150px; height: 150px;">
+                                        <i class="fas fa-user fa-5x text-secondary"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="{{ form.avatar.id_for_label }}" class="form-label">上传头像</label>
+                                    {{ form.avatar }}
+                                    {% if form.avatar.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.avatar.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">推荐上传正方形图片，最大文件大小为2MB</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.school.id_for_label }}" class="form-label">学校</label>
+                        {{ form.school }}
+                        {% if form.school.errors %}
+                            <div class="text-danger">
+                                {% for error in form.school.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.grade.id_for_label }}" class="form-label">年级</label>
+                        {{ form.grade }}
+                        {% if form.grade.errors %}
+                            <div class="text-danger">
+                                {% for error in form.grade.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.subjects_of_interest.id_for_label }}" class="form-label">感兴趣的科目</label>
+                        {{ form.subjects_of_interest }}
+                        {% if form.subjects_of_interest.errors %}
+                            <div class="text-danger">
+                                {% for error in form.subjects_of_interest.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">多个科目请用逗号分隔，例如：数学,物理,化学</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.bio.id_for_label }}" class="form-label">个人简介</label>
+                        {{ form.bio }}
+                        {% if form.bio.errors %}
+                            <div class="text-danger">
+                                {% for error in form.bio.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'profile' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>返回
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>保存修改
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-key me-2 text-warning"></i>账号信息</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">用户名：</div>
+                    <div class="col-md-9">{{ user.username }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">电子邮箱：</div>
+                    <div class="col-md-9">{{ user.email }}</div>
+                </div>
+                <div class="d-grid">
+                    <a href="{% url 'password_change' %}" class="btn btn-outline-warning">
+                        <i class="fas fa-key me-1"></i>修改密码
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

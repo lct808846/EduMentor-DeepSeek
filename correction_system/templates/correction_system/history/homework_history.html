@@ -1,0 +1,246 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}作业批改历史 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="container animation-fade-in py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{% url 'learning_history' %}" class="text-decoration-none text-primary">学习历史</a>
+            <span class="mx-2">/</span>
+            <span class="fw-bold">作业批改历史</span>
+        </div>
+        <a href="{% url 'correct_homework' %}" class="btn" style="background-color: #4e6ef2; color: white;">
+            <i class="fas fa-plus me-1"></i>批改新作业
+        </a>
+    </div>
+    
+    <!-- 统计信息卡片 -->
+    {% if total_count > 0 %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #4e6ef2; color: white;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-chart-bar me-2"></i>
+                <h5 class="mb-0">成绩统计</h5>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <div class="card h-100 border-primary">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ total_count }}</h3>
+                            <p class="text-muted mb-0">总作业数</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <div class="card h-100 border-success">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ avg_score|floatformat:1 }}</h3>
+                            <p class="text-muted mb-0">平均分</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-info">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ highest_score|floatformat:1 }}</h3>
+                            <p class="text-muted mb-0">最高分</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 分数分布图 -->
+            <h6 class="fw-bold mb-2">分数分布</h6>
+            <div class="progress mb-1" style="height: 25px;">
+                {% if total_count > 0 %}
+                <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio excellent_count total_count 100 %}%" 
+                     aria-valuenow="{{ excellent_count }}" aria-valuemin="0" aria-valuemax="{{ total_count }}" 
+                     data-bs-toggle="tooltip" title="优秀(≥90): {{ excellent_count }}">
+                    优秀 {{ excellent_count }}
+                </div>
+                <div class="progress-bar bg-primary" role="progressbar" style="width: {% widthratio good_count total_count 100 %}%" 
+                     aria-valuenow="{{ good_count }}" aria-valuemin="0" aria-valuemax="{{ total_count }}"
+                     data-bs-toggle="tooltip" title="良好(80-89): {{ good_count }}">
+                    良好 {{ good_count }}
+                </div>
+                <div class="progress-bar bg-info" role="progressbar" style="width: {% widthratio average_count total_count 100 %}%" 
+                     aria-valuenow="{{ average_count }}" aria-valuemin="0" aria-valuemax="{{ total_count }}"
+                     data-bs-toggle="tooltip" title="中等(70-79): {{ average_count }}">
+                    中等 {{ average_count }}
+                </div>
+                <div class="progress-bar bg-warning" role="progressbar" style="width: {% widthratio pass_count total_count 100 %}%" 
+                     aria-valuenow="{{ pass_count }}" aria-valuemin="0" aria-valuemax="{{ total_count }}"
+                     data-bs-toggle="tooltip" title="及格(60-69): {{ pass_count }}">
+                    及格 {{ pass_count }}
+                </div>
+                <div class="progress-bar bg-danger" role="progressbar" style="width: {% widthratio fail_count total_count 100 %}%" 
+                     aria-valuenow="{{ fail_count }}" aria-valuemin="0" aria-valuemax="{{ total_count }}"
+                     data-bs-toggle="tooltip" title="不及格(<60): {{ fail_count }}">
+                    不及格 {{ fail_count }}
+                </div>
+                {% else %}
+                <div class="progress-bar" role="progressbar" style="width: 100%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    暂无数据
+                </div>
+                {% endif %}
+            </div>
+            <div class="d-flex justify-content-between small text-muted mt-1">
+                <span>0</span>
+                <span>100</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 筛选区域 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #4e6ef2; color: white;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-list-ul me-2"></i>
+                <h5 class="mb-0">所有作业记录</h5>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="get" action="{% url 'homework_history' %}" id="filterForm">
+                <div class="row align-items-end">
+                    <div class="col-lg-3 col-md-4 col-sm-6 mb-2 mb-md-0">
+                        <label for="scoreFilter" class="form-label">分数范围</label>
+                        <select class="form-select" id="scoreFilter" name="score" onchange="document.getElementById('filterForm').submit()">
+                            <option value="">所有分数</option>
+                            <option value="excellent" {% if selected_score == 'excellent' %}selected{% endif %}>优秀 (≥90)</option>
+                            <option value="good" {% if selected_score == 'good' %}selected{% endif %}>良好 (80-89)</option>
+                            <option value="average" {% if selected_score == 'average' %}selected{% endif %}>中等 (70-79)</option>
+                            <option value="pass" {% if selected_score == 'pass' %}selected{% endif %}>及格 (60-69)</option>
+                            <option value="fail" {% if selected_score == 'fail' %}selected{% endif %}>不及格 (<60)</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        {% if selected_score %}
+                        <a href="{% url 'homework_history' %}" class="btn me-2" style="border: 1px solid #dee2e6; color: #444;">
+                            <i class="fas fa-times me-1"></i>清除筛选
+                        </a>
+                        {% else %}
+                        <button type="submit" class="btn" style="background-color: #4e6ef2; color: white;">
+                            <i class="fas fa-filter me-1"></i>筛选
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 作业列表 -->
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead style="background-color: rgba(78, 110, 242, 0.1);">
+                    <tr>
+                        <th style="width: 5%;">ID</th>
+                        <th style="width: 15%;">提交时间</th>
+                        <th style="width: 10%;">分数</th>
+                        <th style="width: 55%;">批改结果</th>
+                        <th style="width: 15%;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for homework in homeworks %}
+                    <tr>
+                        <td>{{ homework.id }}</td>
+                        <td>{{ homework.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            {% if homework.score %}
+                                <span class="badge {% if homework.score >= 90 %}bg-success{% elif homework.score >= 80 %}bg-primary{% elif homework.score >= 70 %}bg-info{% elif homework.score >= 60 %}bg-warning{% else %}bg-danger{% endif %} p-2">
+                                    {{ homework.score }} 分
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary p-2">未评分</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if homework.correction_result %}
+                                {{ homework.correction_result|truncatechars:100 }}
+                            {% elif homework.correction_status == 'PENDING' %}
+                                <span class="text-warning"><i class="fas fa-spinner fa-spin me-1"></i>批改中...</span>
+                            {% else %}
+                                <span class="text-muted">暂无批改结果</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'view_homework' homework.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'create_knowledge_card' %}?homework_id={{ homework.id }}" class="btn btn-sm btn-outline-warning">
+                                    <i class="fas fa-lightbulb"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <div class="text-muted mb-3">
+                                <i class="fas fa-info-circle fa-3x mb-3"></i>
+                                <p>暂无作业批改记录</p>
+                            </div>
+                            <a href="{% url 'correct_homework' %}" class="btn" style="background-color: #4e6ef2; color: white;">
+                                <i class="fas fa-plus me-1"></i>批改新作业
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页 -->
+        {% if homeworks.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="作业分页">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if homeworks.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ homeworks.previous_page_number }}{% if selected_score %}&score={{ selected_score }}{% endif %}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in homeworks.paginator.page_range %}
+                        {% if homeworks.number == num %}
+                        <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                        {% elif num > homeworks.number|add:'-3' and num < homeworks.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}{% if selected_score %}&score={{ selected_score }}{% endif %}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if homeworks.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ homeworks.next_page_number }}{% if selected_score %}&score={{ selected_score }}{% endif %}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 

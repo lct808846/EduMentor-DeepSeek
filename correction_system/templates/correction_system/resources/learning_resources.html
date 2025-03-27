@@ -1,0 +1,282 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}学习资源 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-md-10">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fs-3"><i class="fas fa-book me-2 text-primary"></i>学习资源库</h2>
+            <div>
+                <a href="{% url 'recommend_resources' %}" class="btn btn-outline-info me-2">
+                    <i class="fas fa-search me-1"></i>资源推荐
+                </a>
+                {% if user.is_staff %}
+                <a href="{% url 'admin:correction_system_learningresource_add' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>添加资源
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        <div class="row">
+            <div class="col-md-3 mb-4">
+                <div class="card sticky-md-top" style="top: 1rem;">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-filter me-2"></i>筛选</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="get" action="{% url 'learning_resources' %}">
+                            <div class="mb-3">
+                                <label class="form-label">资源类型</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="type" value="ARTICLE" id="typeArticle" {% if 'ARTICLE' in selected_types %}checked{% endif %}>
+                                    <label class="form-check-label" for="typeArticle">
+                                        <i class="fas fa-file-alt text-success me-1"></i>文章
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="type" value="VIDEO" id="typeVideo" {% if 'VIDEO' in selected_types %}checked{% endif %}>
+                                    <label class="form-check-label" for="typeVideo">
+                                        <i class="fas fa-video text-danger me-1"></i>视频
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="type" value="BOOK" id="typeBook" {% if 'BOOK' in selected_types %}checked{% endif %}>
+                                    <label class="form-check-label" for="typeBook">
+                                        <i class="fas fa-book text-info me-1"></i>书籍
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="type" value="WEBSITE" id="typeWebsite" {% if 'WEBSITE' in selected_types %}checked{% endif %}>
+                                    <label class="form-check-label" for="typeWebsite">
+                                        <i class="fas fa-globe text-primary me-1"></i>网站
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="type" value="EXERCISE" id="typeExercise" {% if 'EXERCISE' in selected_types %}checked{% endif %}>
+                                    <label class="form-check-label" for="typeExercise">
+                                        <i class="fas fa-tasks text-warning me-1"></i>练习题
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">关键词</label>
+                                <input type="text" class="form-control" name="keyword" value="{{ request.GET.keyword|default:'' }}" placeholder="搜索...">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">排序方式</label>
+                                <select class="form-select" name="sort">
+                                    <option value="relevance" {% if request.GET.sort == 'relevance' %}selected{% endif %}>相关性</option>
+                                    <option value="latest" {% if request.GET.sort == 'latest' %}selected{% endif %}>最新添加</option>
+                                    <option value="rating" {% if request.GET.sort == 'rating' %}selected{% endif %}>最高评分</option>
+                                    <option value="popular" {% if request.GET.sort == 'popular' %}selected{% endif %}>最受欢迎</option>
+                                </select>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-1"></i>应用筛选
+                                </button>
+                            </div>
+                        </form>
+                        {% if request.GET %}
+                            <div class="d-grid mt-2">
+                                <a href="{% url 'learning_resources' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-1"></i>清除筛选
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-9">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>资源列表</h5>
+                        <div class="text-muted">共 {{ resources.paginator.count }} 个资源</div>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if resources %}
+                            <div class="list-group list-group-flush">
+                                {% for resource in resources %}
+                                    <div class="list-group-item p-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h5 class="mb-1">
+                                                <a href="{% url 'view_resource' resource.id %}" class="text-decoration-none">
+                                                    {{ resource.title }}
+                                                </a>
+                                            </h5>
+                                            <span class="badge 
+                                                {% if resource.resource_type == 'ARTICLE' %}bg-success
+                                                {% elif resource.resource_type == 'VIDEO' %}bg-danger
+                                                {% elif resource.resource_type == 'BOOK' %}bg-info
+                                                {% elif resource.resource_type == 'WEBSITE' %}bg-primary
+                                                {% elif resource.resource_type == 'EXERCISE' %}bg-warning
+                                                {% endif %}">
+                                                {{ resource.get_resource_type_display }}
+                                            </span>
+                                        </div>
+                                        <p class="text-muted small mb-2">
+                                            {% if resource.author %}
+                                                <i class="fas fa-user me-1"></i>{{ resource.author }} |
+                                            {% endif %}
+                                            <i class="fas fa-calendar-alt me-1"></i>{{ resource.created_at|date:"Y-m-d" }}
+                                            {% if resource.avg_rating %}
+                                                | <i class="fas fa-star text-warning me-1"></i>{{ resource.avg_rating }} ({{ resource.review_count }}条评价)
+                                            {% endif %}
+                                        </p>
+                                        <p class="mb-2">{{ resource.description|truncatechars:150 }}</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-info-circle me-1"></i>查看详情
+                                            </a>
+                                            <div>
+                                                {% if user in resource.saved_by.all %}
+                                                    <form method="post" action="{% url 'unsave_resource' resource.id %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-secondary">
+                                                            <i class="fas fa-bookmark me-1"></i>已收藏
+                                                        </button>
+                                                    </form>
+                                                {% else %}
+                                                    <form method="post" action="{% url 'save_resource' resource.id %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                            <i class="far fa-bookmark me-1"></i>收藏
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                                {% if resource.url %}
+                                                    <a href="{{ resource.url }}" target="_blank" class="btn btn-sm btn-outline-info ms-1">
+                                                        <i class="fas fa-external-link-alt me-1"></i>访问
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            
+                            {% if is_paginated %}
+                            <div class="card-footer">
+                                <nav>
+                                    <ul class="pagination justify-content-center mb-0">
+                                        {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ page_obj.previous_page_number }}">上一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">上一页</span>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% for num in page_obj.paginator.page_range %}
+                                            {% if page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ num }}">{{ num }}</a>
+                                            </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ page_obj.next_page_number }}">下一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">下一页</span>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </nav>
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-search fa-4x mb-3 text-muted"></i>
+                                <h5>未找到符合条件的资源</h5>
+                                <p class="text-muted">尝试使用其他关键词或清除筛选条件</p>
+                                <a href="{% url 'learning_resources' %}" class="btn btn-outline-primary mt-2">
+                                    <i class="fas fa-times me-1"></i>清除所有筛选
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-bookmark me-2 text-primary"></i>我的收藏</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if saved_resources %}
+                            <div class="list-group list-group-flush">
+                                {% for resource in saved_resources %}
+                                    <div class="list-group-item p-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-1">
+                                                <a href="{% url 'view_resource' resource.id %}" class="text-decoration-none">
+                                                    {{ resource.title }}
+                                                </a>
+                                            </h6>
+                                            <span class="badge 
+                                                {% if resource.resource_type == 'ARTICLE' %}bg-success
+                                                {% elif resource.resource_type == 'VIDEO' %}bg-danger
+                                                {% elif resource.resource_type == 'BOOK' %}bg-info
+                                                {% elif resource.resource_type == 'WEBSITE' %}bg-primary
+                                                {% elif resource.resource_type == 'EXERCISE' %}bg-warning
+                                                {% endif %}">
+                                                {{ resource.get_resource_type_display }}
+                                            </span>
+                                        </div>
+                                        <p class="mb-2 small text-muted">{{ resource.description|truncatechars:100 }}</p>
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye me-1"></i>查看
+                                                </a>
+                                                {% if resource.url %}
+                                                    <a href="{{ resource.url }}" target="_blank" class="btn btn-sm btn-outline-info ms-1">
+                                                        <i class="fas fa-external-link-alt me-1"></i>访问
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                            <form method="post" action="{% url 'unsave_resource' resource.id %}">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-trash me-1"></i>取消收藏
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="far fa-bookmark fa-3x mb-3 text-muted"></i>
+                                <p>您还没有收藏任何资源</p>
+                                <p class="text-muted small">浏览资源库并收藏有用的资源以便日后查阅</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

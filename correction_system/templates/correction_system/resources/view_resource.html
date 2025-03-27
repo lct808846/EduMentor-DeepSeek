@@ -1,0 +1,228 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}{{ resource.title }} - 智学导师{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-md-8">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'learning_resources' %}">学习资源</a></li>
+                <li class="breadcrumb-item active" aria-current="page">查看资源</li>
+            </ol>
+        </nav>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">{{ resource.title }}</h4>
+                    <span class="badge 
+                        {% if resource.resource_type == 'ARTICLE' %}bg-success
+                        {% elif resource.resource_type == 'VIDEO' %}bg-danger
+                        {% elif resource.resource_type == 'BOOK' %}bg-info
+                        {% elif resource.resource_type == 'WEBSITE' %}bg-primary
+                        {% elif resource.resource_type == 'EXERCISE' %}bg-warning
+                        {% endif %}">
+                        {{ resource.get_resource_type_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h6 class="text-muted mb-3">资源信息</h6>
+                    <div class="row mb-2">
+                        <div class="col-md-3 text-muted">作者：</div>
+                        <div class="col-md-9">{{ resource.author|default:"未知" }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-3 text-muted">添加时间：</div>
+                        <div class="col-md-9">{{ resource.created_at|date:"Y年m月d日" }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-3 text-muted">平均评分：</div>
+                        <div class="col-md-9">
+                            <div class="rating-stars">
+                                {% for i in '12345' %}
+                                    {% if forloop.counter <= resource.avg_rating %}
+                                        <i class="fas fa-star text-warning"></i>
+                                    {% else %}
+                                        <i class="far fa-star text-warning"></i>
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="ms-2">{{ resource.avg_rating|default:"0" }}/5 ({{ resource.review_count|default:"0" }}条评价)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 text-muted">链接：</div>
+                        <div class="col-md-9">
+                            {% if resource.url %}
+                                <a href="{{ resource.url }}" target="_blank" class="text-break">
+                                    {{ resource.url }}
+                                    <i class="fas fa-external-link-alt ms-1 small"></i>
+                                </a>
+                            {% else %}
+                                <span class="text-muted">暂无链接</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h6 class="text-muted mb-3">资源描述</h6>
+                    <div class="p-3 bg-light rounded">
+                        {{ resource.description|linebreaks }}
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'learning_resources' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>返回资源列表
+                    </a>
+                    <div>
+                        {% if user in resource.saved_by.all %}
+                            <form method="post" action="{% url 'unsave_resource' resource.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-secondary">
+                                    <i class="fas fa-bookmark me-1"></i>已收藏
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="{% url 'save_resource' resource.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-primary">
+                                    <i class="far fa-bookmark me-1"></i>收藏资源
+                                </button>
+                            </form>
+                        {% endif %}
+                        <a href="{{ resource.url }}" target="_blank" class="btn btn-primary ms-2">
+                            <i class="fas fa-external-link-alt me-1"></i>访问资源
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if related_resources %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-link me-2 text-info"></i>相关资源</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for related in related_resources %}
+                        <a href="{% url 'view_resource' related.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ related.title }}</h6>
+                                <span class="badge 
+                                    {% if related.resource_type == 'ARTICLE' %}bg-success
+                                    {% elif related.resource_type == 'VIDEO' %}bg-danger
+                                    {% elif related.resource_type == 'BOOK' %}bg-info
+                                    {% elif related.resource_type == 'WEBSITE' %}bg-primary
+                                    {% elif related.resource_type == 'EXERCISE' %}bg-warning
+                                    {% endif %}">
+                                    {{ related.get_resource_type_display }}
+                                </span>
+                            </div>
+                            <p class="mb-1 small text-muted">{{ related.description|truncatechars:120 }}</p>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-star me-2 text-warning"></i>评价资源</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'rate_resource' resource.id %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="rating" class="form-label">评分 <span class="text-danger">*</span></label>
+                        <div class="rating-input">
+                            <span class="star-rating">
+                                {% for i in '12345' %}
+                                <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}" {% if user_rating == i %}checked{% endif %} required>
+                                <label for="star{{ i }}"><i class="fas fa-star"></i></label>
+                                {% endfor %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="comment" class="form-label">评价内容</label>
+                        <textarea class="form-control" id="comment" name="comment" rows="3">{{ user_review.comment|default:'' }}</textarea>
+                        <div class="form-text">可选，请分享您对这个资源的看法</div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-paper-plane me-1"></i>提交评价
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {% if reviews %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-comments me-2 text-primary"></i>用户评价 ({{ reviews|length }})</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for review in reviews %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="fw-bold">{{ review.user.username }}</span>
+                                    <span class="ms-2">
+                                        {% for i in '12345' %}
+                                            {% if forloop.counter <= review.rating %}
+                                                <i class="fas fa-star text-warning small"></i>
+                                            {% else %}
+                                                <i class="far fa-star text-warning small"></i>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </span>
+                                </div>
+                                <small class="text-muted">{{ review.created_at|date:"Y-m-d" }}</small>
+                            </div>
+                            {% if review.comment %}
+                                <p class="mt-2 mb-0">{{ review.comment }}</p>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block css %}
+<style>
+    .star-rating {
+        display: inline-flex;
+        flex-direction: row-reverse;
+        font-size: 1.5rem;
+    }
+    
+    .star-rating input {
+        display: none;
+    }
+    
+    .star-rating label {
+        cursor: pointer;
+        color: #ccc;
+        margin-right: 5px;
+    }
+    
+    .star-rating label:hover,
+    .star-rating label:hover ~ label,
+    .star-rating input:checked ~ label {
+        color: #ffcc00;
+    }
+</style>
+{% endblock %} 

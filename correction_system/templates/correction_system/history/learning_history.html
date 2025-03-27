@@ -1,0 +1,155 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}学习历史 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="container py-4 animation-fade-in">
+    <div class="row mb-4">
+        <div class="col">
+            <h2 class="mb-4"><i class="fas fa-history me-2 text-primary"></i>学习历史总览</h2>
+        </div>
+    </div>
+    
+    <!-- 统计信息卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-4 mb-md-0">
+            <div class="card h-100 shadow-sm border-primary border-top-0 border-end-0 border-bottom-0 border-3">
+                <div class="card-body">
+                    <h5 class="card-title mb-3"><i class="fas fa-question-circle me-2 text-primary"></i>题目解答</h5>
+                    <div class="display-4 fw-bold mb-3">{{ problem_count }}</div>
+                    <p class="card-text text-muted mb-1">文本题目: {{ text_problem_count }}</p>
+                    <p class="card-text text-muted mb-1">图片题目: {{ image_problem_count }}</p>
+                    <p class="card-text text-muted">最近7天新增: {{ last_week_problems }}</p>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'problem_history' %}" class="btn btn-outline-primary btn-sm">查看全部题目</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4 mb-md-0">
+            <div class="card h-100 shadow-sm border-warning border-top-0 border-end-0 border-bottom-0 border-3">
+                <div class="card-body">
+                    <h5 class="card-title mb-3"><i class="fas fa-book me-2 text-warning"></i>作业批改</h5>
+                    <div class="display-4 fw-bold mb-3">{{ homework_count }}</div>
+                    <p class="card-text text-muted mb-1">平均得分: {{ avg_homework_score }}</p>
+                    <p class="card-text text-muted mb-1">最高得分: {{ max_homework_score }}</p>
+                    <p class="card-text text-muted">最近7天新增: {{ last_week_homeworks }}</p>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'homework_history' %}" class="btn btn-outline-warning btn-sm">查看全部作业</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-success border-top-0 border-end-0 border-bottom-0 border-3">
+                <div class="card-body">
+                    <h5 class="card-title mb-3"><i class="fas fa-lightbulb me-2 text-success"></i>知识卡片</h5>
+                    <div class="display-4 fw-bold mb-3">{{ card_count }}</div>
+                    <p class="card-text text-muted mb-1">累计学习时间: {{ total_study_time }} 分钟</p>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'knowledge_cards' %}" class="btn btn-outline-success btn-sm">查看全部卡片</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if has_activity %}
+    <!-- 最近活动 -->
+    <div class="row mt-5">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header" style="background-color: #4e6ef2; color: white;">
+                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>最近解答的题目</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_problems %}
+                        <div class="list-group list-group-flush">
+                            {% for problem in recent_problems %}
+                                <a href="{% url 'view_problem' problem.id %}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ problem.text_content|truncatechars:50 }}</h6>
+                                        <small class="text-muted">{{ problem.created_at|date:"Y-m-d H:i" }}</small>
+                                    </div>
+                                    <small class="text-muted">
+                                        <span class="badge {% if problem.problem_type == 'TEXT' %}bg-primary{% else %}bg-info{% endif %}">
+                                            {{ problem.get_problem_type_display }}
+                                        </span>
+                                    </small>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-info-circle text-muted mb-3" style="font-size: 3rem;"></i>
+                            <p class="mb-0">您还没有解答过题目</p>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'problem_history' %}" class="btn btn-sm" style="background-color: #4e6ef2; color: white;">查看全部解答记录</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header" style="background-color: #4e6ef2; color: white;">
+                    <h5 class="mb-0"><i class="fas fa-book me-2"></i>最近批改的作业</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_homeworks %}
+                        <div class="list-group list-group-flush">
+                            {% for homework in recent_homeworks %}
+                                <a href="{% url 'view_homework' homework.id %}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">作业 #{{ homework.id }}</h6>
+                                        <small class="text-muted">{{ homework.created_at|date:"Y-m-d H:i" }}</small>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">分数: {{ homework.score }}</small>
+                                        <span class="badge rounded-pill 
+                                            {% if homework.score >= 90 %}bg-success
+                                            {% elif homework.score >= 80 %}bg-primary
+                                            {% elif homework.score >= 70 %}bg-info
+                                            {% elif homework.score >= 60 %}bg-warning
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ homework.score }}分
+                                        </span>
+                                    </div>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-info-circle text-muted mb-3" style="font-size: 3rem;"></i>
+                            <p class="mb-0">您还没有批改过作业</p>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'homework_history' %}" class="btn btn-sm" style="background-color: #4e6ef2; color: white;">查看全部批改记录</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- 无活动提示 -->
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-info-circle text-muted mb-3" style="font-size: 3rem;"></i>
+            <h4 class="mb-3">暂无学习记录</h4>
+            <p class="mb-4">您还没有任何学习活动，开始使用智学导师解答题目或批改作业吧！</p>
+            <a href="{% url 'solve_problem' %}" class="btn btn-lg" style="background-color: #4e6ef2; color: white; margin-right: 10px;">
+                <i class="fas fa-question-circle me-2"></i>解答新题目
+            </a>
+            <a href="{% url 'correct_homework' %}" class="btn btn-lg" style="border: 1px solid #4e6ef2; color: #4e6ef2;">
+                <i class="fas fa-book me-2"></i>批改作业
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

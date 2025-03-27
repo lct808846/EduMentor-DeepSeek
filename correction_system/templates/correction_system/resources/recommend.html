@@ -1,0 +1,240 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}学习资源推荐 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-md-10">
+        {% if problem %}
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'learning_history' %}">学习历史</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'problem_history' %}">题目解答历史</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'view_problem' problem.id %}">查看题目</a></li>
+                <li class="breadcrumb-item active" aria-current="page">学习资源推荐</li>
+            </ol>
+        </nav>
+        {% elif homework %}
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'learning_history' %}">学习历史</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'homework_history' %}">作业批改历史</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'view_homework' homework.id %}">查看作业批改</a></li>
+                <li class="breadcrumb-item active" aria-current="page">学习资源推荐</li>
+            </ol>
+        </nav>
+        {% else %}
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'home' %}">首页</a></li>
+                <li class="breadcrumb-item active" aria-current="page">学习资源推荐</li>
+            </ol>
+        </nav>
+        {% endif %}
+        
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-search me-2 text-primary"></i>查找学习资源</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" id="resourceRecommendForm">
+                            {% csrf_token %}
+                            
+                            {% if problem %}
+                                <input type="hidden" name="problem_id" value="{{ problem.id }}">
+                                <div class="mb-3">
+                                    <h6 class="card-subtitle mb-2 text-muted">题目内容：</h6>
+                                    <div class="p-3 bg-light rounded">
+                                        {% if problem.problem_type == 'TEXT' %}
+                                            <p class="mb-0">{{ problem.text_content }}</p>
+                                        {% else %}
+                                            <div class="text-center">
+                                                <img src="{{ problem.image.url }}" class="img-fluid rounded border" style="max-height: 200px;">
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% elif homework %}
+                                <input type="hidden" name="homework_id" value="{{ homework.id }}">
+                                <div class="mb-3">
+                                    <h6 class="card-subtitle mb-2 text-muted">需要提高的地方：</h6>
+                                    <div class="p-3 bg-light rounded">
+                                        <ul class="mb-0 ps-3">
+                                            {% for weakness in homework.weaknesses_list %}
+                                                <li>{{ weakness }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="mb-3">
+                                    <label for="query" class="form-label">搜索关键词 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="query" name="query" required>
+                                    <small class="form-text text-muted">输入您想要学习的主题或关键词</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="resource_type" class="form-label">资源类型</label>
+                                    <select class="form-select" id="resource_type" name="resource_type">
+                                        <option value="all">所有类型</option>
+                                        <option value="video">视频教程</option>
+                                        <option value="article">文章/教程</option>
+                                        <option value="course">在线课程</option>
+                                        <option value="book">书籍</option>
+                                        <option value="quiz">练习题</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="difficulty" class="form-label">难度级别</label>
+                                    <select class="form-select" id="difficulty" name="difficulty">
+                                        <option value="all">所有难度</option>
+                                        <option value="beginner">入门级</option>
+                                        <option value="intermediate">中级</option>
+                                        <option value="advanced">高级</option>
+                                    </select>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" id="recommendBtn">
+                                    <i class="fas fa-search me-1"></i>推荐学习资源
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-8 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-book me-2 text-info"></i>推荐学习资源</h5>
+                        {% if resources %}
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="sortDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-sort me-1"></i>排序
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="sortDropdown">
+                                <li><a class="dropdown-item" href="?sort=relevance">相关性</a></li>
+                                <li><a class="dropdown-item" href="?sort=date">日期</a></li>
+                                <li><a class="dropdown-item" href="?sort=rating">评分</a></li>
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <div id="resourcesWrapper">
+                            {% if resources %}
+                                {% for resource in resources %}
+                                <div class="card mb-3 resource-card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <h5 class="card-title mb-1">
+                                                <a href="{{ resource.url }}" target="_blank" class="text-decoration-none">
+                                                    {{ resource.title }}
+                                                </a>
+                                            </h5>
+                                            <span class="badge 
+                                                {% if resource.type == '视频教程' %}bg-danger
+                                                {% elif resource.type == '文章/教程' %}bg-success
+                                                {% elif resource.type == '在线课程' %}bg-primary
+                                                {% elif resource.type == '书籍' %}bg-info
+                                                {% else %}bg-secondary
+                                                {% endif %}">
+                                                {{ resource.type }}
+                                            </span>
+                                        </div>
+                                        <p class="card-text text-muted small mb-2">{{ resource.author|default:"匿名" }} | {{ resource.date|default:"未知日期" }}</p>
+                                        <p class="card-text">{{ resource.description }}</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <span class="text-warning me-1">
+                                                    {% for i in resource.rating_stars %}
+                                                        <i class="fas fa-star"></i>
+                                                    {% endfor %}
+                                                    {% for i in resource.rating_empty_stars %}
+                                                        <i class="far fa-star"></i>
+                                                    {% endfor %}
+                                                </span>
+                                                <small class="text-muted">{{ resource.rating|default:"0" }}/5 ({{ resource.reviews|default:"0" }}评价)</small>
+                                            </div>
+                                            <div>
+                                                <a href="{{ resource.url }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                                    <i class="fas fa-external-link-alt me-1"></i>查看资源
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-secondary ms-1 save-resource" data-resource-id="{{ resource.id }}">
+                                                    <i class="far fa-bookmark me-1"></i>收藏
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% elif is_searching %}
+                                <div class="text-center py-5">
+                                    <div class="spinner-border text-info mb-3" role="status">
+                                        <span class="visually-hidden">加载中...</span>
+                                    </div>
+                                    <h5>正在搜索相关学习资源...</h5>
+                                    <p class="text-muted">请稍候，这可能需要几秒钟时间</p>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-book fa-4x mb-3 text-muted"></i>
+                                    <h5>输入关键词获取学习资源推荐</h5>
+                                    <p class="text-muted">系统将基于您的输入智能推荐最适合的学习资源</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const recommendForm = document.getElementById('resourceRecommendForm');
+        const recommendBtn = document.getElementById('recommendBtn');
+        
+        if (recommendForm) {
+            recommendForm.addEventListener('submit', function(e) {
+                // 显示加载状态
+                recommendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>正在推荐...';
+                recommendBtn.disabled = true;
+                
+                // 表单正常提交
+            });
+        }
+        
+        // 收藏资源功能
+        const saveButtons = document.querySelectorAll('.save-resource');
+        saveButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const resourceId = this.getAttribute('data-resource-id');
+                
+                // 更改按钮状态
+                const icon = this.querySelector('i');
+                const text = this.textContent.trim();
+                
+                if (text.includes('收藏')) {
+                    this.innerHTML = '<i class="fas fa-bookmark me-1"></i>已收藏';
+                    this.classList.remove('btn-outline-secondary');
+                    this.classList.add('btn-secondary');
+                } else {
+                    this.innerHTML = '<i class="far fa-bookmark me-1"></i>收藏';
+                    this.classList.remove('btn-secondary');
+                    this.classList.add('btn-outline-secondary');
+                }
+                
+                // 发送AJAX请求收藏资源
+                // ...
+            });
+        });
+    });
+</script>
+{% endblock %} 

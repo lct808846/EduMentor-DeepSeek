@@ -1,0 +1,100 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}编辑知识卡片 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-md-8">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'knowledge_cards' %}">知识卡片</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'view_knowledge_card' card.id %}">{{ card.title }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">编辑卡片</li>
+            </ol>
+        </nav>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-edit me-2 text-primary"></i>编辑知识卡片</h5>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="title" class="form-label">标题 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="title" name="title" required value="{{ card.title }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="content" class="form-label">内容 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="content" name="content" rows="8" required>{{ card.content }}</textarea>
+                        <small class="form-text text-muted">支持Markdown格式</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tags" class="form-label">标签</label>
+                        <input type="text" class="form-control" id="tags" name="tags" value="{{ card.tags|default:'' }}" placeholder="用逗号分隔多个标签">
+                        <small class="form-text text-muted">例如：数学,代数,方程</small>
+                    </div>
+                    
+                    {% if card.problem %}
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="keepProblemLink" name="keep_problem_link" checked>
+                            <label class="form-check-label" for="keepProblemLink">
+                                保持与题目的关联
+                            </label>
+                            <small class="form-text text-muted d-block">
+                                取消勾选将移除此卡片与题目"{{ card.problem.text_content|truncatechars:50 }}"的关联
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'view_knowledge_card' card.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>取消
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>保存修改
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mb-4 border-danger">
+            <div class="card-header bg-danger bg-opacity-10">
+                <h5 class="mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>危险操作</h5>
+            </div>
+            <div class="card-body">
+                <p>如果您想删除此知识卡片，请点击下方按钮。<br>
+                <strong class="text-danger">注意：此操作不可撤销！</strong></p>
+                <form method="post" action="{% url 'delete_knowledge_card' card.id %}" onsubmit="return confirm('您确定要删除这个知识卡片吗？此操作不可撤销！');">
+                    {% csrf_token %}
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="fas fa-trash me-1"></i>删除知识卡片
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 内容编辑器相关JavaScript（如果需要）
+    });
+</script>
+{% endblock %} 

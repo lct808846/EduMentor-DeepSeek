@@ -1,0 +1,148 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}查看题目 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animation-fade-in">
+    <div class="col-md-8">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'learning_history' %}">学习历史</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'problem_history' %}">题目解答历史</a></li>
+                <li class="breadcrumb-item active" aria-current="page">查看题目</li>
+            </ol>
+        </nav>
+        
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    {% if problem.problem_type == 'TEXT' %}
+                        <i class="fas fa-file-alt me-2 text-secondary"></i>文本题目
+                    {% else %}
+                        <i class="fas fa-image me-2 text-info"></i>图片题目
+                    {% endif %}
+                </h5>
+                <small class="text-muted">{{ problem.created_at|date:"Y-m-d H:i:s" }}</small>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h6 class="card-subtitle mb-2 text-muted">题目内容：</h6>
+                    {% if problem.problem_type == 'TEXT' %}
+                        <div class="p-3 bg-light rounded">
+                            <p class="mb-0">{{ problem.text_content }}</p>
+                        </div>
+                    {% else %}
+                        <div class="text-center mb-3">
+                            <img src="{{ problem.image.url }}" class="img-fluid rounded border" style="max-height: 400px;">
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <h6 class="card-subtitle mb-2 text-muted">解答结果：</h6>
+                    <div class="p-3 bg-light rounded">
+                        <div class="solution-content">{{ problem.solution|linebreaks }}</div>
+                    </div>
+                    <div class="d-flex justify-content-end mt-2">
+                        <button class="btn btn-sm btn-outline-primary copy-btn" data-clipboard-target=".solution-content">
+                            <i class="fas fa-copy me-1"></i>复制解答
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'problem_history' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>返回列表
+                    </a>
+                    <div>
+                        <a href="{% url 'create_knowledge_card' %}?problem_id={{ problem.id }}&generate=true" class="btn btn-warning">
+                            <i class="fas fa-lightbulb me-1"></i>生成知识卡片
+                        </a>
+                        <a href="{% url 'recommend_resources' %}?problem_id={{ problem.id }}" class="btn btn-info ms-2">
+                            <i class="fas fa-book me-1"></i>推荐学习资源
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if knowledge_cards %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-lightbulb me-2 text-warning"></i>相关知识卡片</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for card in knowledge_cards %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-warning">
+                            <div class="card-header bg-warning bg-opacity-10">
+                                <h6 class="card-title mb-0">{{ card.title }}</h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text small text-muted">{{ card.content|truncatechars:100 }}</p>
+                                <a href="{% url 'view_card' card.id %}" class="btn btn-sm btn-outline-warning">查看详情</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if recommended_resources %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-book me-2 text-info"></i>推荐学习资源</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for resource in recommended_resources %}
+                    <a href="{{ resource.url }}" target="_blank" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ resource.title }}</h6>
+                            <small class="text-muted">{{ resource.type }}</small>
+                        </div>
+                        <p class="mb-1 small text-muted">{{ resource.description|truncatechars:150 }}</p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 复制按钮功能
+        const copyBtn = document.querySelector('.copy-btn');
+        
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function() {
+                const solutionContent = document.querySelector('.solution-content').innerText;
+                
+                navigator.clipboard.writeText(solutionContent).then(function() {
+                    // 临时改变按钮文字和样式
+                    const originalText = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>已复制';
+                    copyBtn.classList.remove('btn-outline-primary');
+                    copyBtn.classList.add('btn-success');
+                    
+                    setTimeout(function() {
+                        copyBtn.innerHTML = originalText;
+                        copyBtn.classList.remove('btn-success');
+                        copyBtn.classList.add('btn-outline-primary');
+                    }, 2000);
+                })
+                .catch(function(err) {
+                    console.error('复制失败: ', err);
+                });
+            });
+        }
+    });
+</script>
+{% endblock %} 

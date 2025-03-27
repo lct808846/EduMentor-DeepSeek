@@ -1,0 +1,199 @@
+{% extends 'correction_system/base.html' %}
+
+{% block title %}题目解答 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="container animation-fade-in">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fs-3"><i class="fas fa-question-circle me-2 text-primary"></i>题目解答</h2>
+                <a href="{% url 'learning_history' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-history me-1"></i>历史记录
+                </a>
+            </div>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="text-tab" data-bs-toggle="tab" href="#text-problem" role="tab" aria-selected="true">
+                                <i class="fas fa-font me-1"></i>文本题目
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="image-tab" data-bs-toggle="tab" href="#image-problem" role="tab" aria-selected="false">
+                                <i class="fas fa-image me-1"></i>图片题目
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content">
+                        <!-- 文本题目表单 -->
+                        <div class="tab-pane fade show active" id="text-problem" role="tabpanel">
+                            <form id="textProblemForm" method="post" action="{% url 'solve_problem' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="problem_type" value="TEXT">
+                                
+                                <div class="mb-3">
+                                    <label for="id_text_content" class="form-label">题目内容</label>
+                                    <textarea class="form-control" id="id_text_content" name="text_content" rows="5" placeholder="请输入题目内容..." required></textarea>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary" id="textSubmitBtn">
+                                        <i class="fas fa-paper-plane me-1"></i>提交解答
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- 图片题目表单 -->
+                        <div class="tab-pane fade" id="image-problem" role="tabpanel">
+                            <form id="imageProblemForm" method="post" action="{% url 'solve_problem' %}" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <input type="hidden" name="problem_type" value="IMAGE">
+                                
+                                <div class="mb-3">
+                                    <label for="id_image" class="form-label">题目图片</label>
+                                    <input type="file" class="form-control" id="id_image" name="image" accept="image/*" required>
+                                    <div class="form-text">支持JPG、PNG、GIF格式的图片</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_image_text_content" class="form-label">补充说明（可选）</label>
+                                    <textarea class="form-control" id="id_image_text_content" name="text_content" rows="3" placeholder="可以添加题目的文字说明（可选）..."></textarea>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary" id="imageSubmitBtn">
+                                        <i class="fas fa-paper-plane me-1"></i>提交解答
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 解答结果 -->
+            {% if solution %}
+            <div class="card" id="resultCard">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>解答结果</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <h6 class="fw-bold">题目内容：</h6>
+                            <span class="badge bg-primary">{{ form.problem_type }}</span>
+                        </div>
+                        {% if form.problem_type == 'TEXT' %}
+                            <p>{{ form.text_content }}</p>
+                        {% else %}
+                            <div class="text-center mb-3">
+                                <img src="{{ form.image.url }}" alt="题目图片" class="img-fluid rounded" style="max-height: 300px;">
+                            </div>
+                            {% if form.text_content %}
+                                <p>{{ form.text_content }}</p>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6 class="fw-bold">解答过程：</h6>
+                        <div class="bg-light p-3 rounded" id="solutionContent">
+                            {{ solution|linebreaks }}
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-outline-primary" id="copySolutionBtn">
+                            <i class="fas fa-copy me-1"></i>复制解答
+                        </button>
+                        
+                        {% if user.is_authenticated %}
+                        <div>
+                            <a href="{% url 'create_knowledge_card' %}?problem_id={{ problem.id }}&generate=true" class="btn btn-outline-warning">
+                                <i class="fas fa-lightbulb me-1"></i>生成知识卡片
+                            </a>
+                            <a href="{% url 'recommend_resources' %}?problem_id={{ problem.id }}" class="btn btn-outline-info">
+                                <i class="fas fa-book me-1"></i>推荐学习资源
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if not solution %}
+<!-- 加载动画 -->
+<div id="loadingSpinner" class="loading-spinner text-center p-5" style="display: none;">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+        <span class="visually-hidden">加载中...</span>
+    </div>
+    <h5 class="mt-3 text-primary">正在解答题目，请稍候...</h5>
+    <p class="text-muted">解答复杂题目可能需要10-20秒</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 复制解答按钮
+        const copySolutionBtn = document.getElementById('copySolutionBtn');
+        if (copySolutionBtn) {
+            copySolutionBtn.addEventListener('click', function() {
+                const solutionContent = document.getElementById('solutionContent').innerText;
+                navigator.clipboard.writeText(solutionContent).then(function() {
+                    // 显示成功消息
+                    copySolutionBtn.innerHTML = '<i class="fas fa-check me-1"></i>已复制';
+                    copySolutionBtn.classList.remove('btn-outline-primary');
+                    copySolutionBtn.classList.add('btn-success');
+                    
+                    // 3秒后恢复按钮状态
+                    setTimeout(function() {
+                        copySolutionBtn.innerHTML = '<i class="fas fa-copy me-1"></i>复制解答';
+                        copySolutionBtn.classList.remove('btn-success');
+                        copySolutionBtn.classList.add('btn-outline-primary');
+                    }, 3000);
+                });
+            });
+        }
+        
+        // 提交表单时显示加载动画
+        const textForm = document.getElementById('textProblemForm');
+        const imageForm = document.getElementById('imageProblemForm');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        
+        function showLoading(e) {
+            loadingSpinner.style.display = 'block';
+            document.querySelector('.card').style.display = 'none';
+        }
+        
+        if (textForm) {
+            textForm.addEventListener('submit', showLoading);
+        }
+        
+        if (imageForm) {
+            imageForm.addEventListener('submit', showLoading);
+        }
+    });
+</script>
+{% endblock %} 

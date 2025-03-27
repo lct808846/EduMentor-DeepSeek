@@ -218,3 +218,144 @@ class DeepSeekService:
                 'score': 0,
                 'feedback': f"批改过程出错: {str(e)}"
             } 
+
+class KnowledgeExtractor:
+    """从解答结果中提取知识点"""
+    
+    @staticmethod
+    def extract_knowledge_points(solution_text):
+        """提取知识点"""
+        knowledge_points = []
+        
+        # 尝试找到"知识点总结"部分
+        if "知识点总结" in solution_text:
+            try:
+                # 提取知识点总结部分
+                knowledge_summary_section = solution_text.split("知识点总结")[1].strip()
+                
+                # 如果有下一个大标题，截取到下一个大标题前
+                if "##" in knowledge_summary_section:
+                    knowledge_summary_section = knowledge_summary_section.split("##")[0].strip()
+                
+                # 按行分割，去除空行
+                lines = [line.strip() for line in knowledge_summary_section.split('\n') if line.strip()]
+                
+                # 如果以列表形式呈现（- 或* 开头）
+                if any(line.startswith(('-', '*')) for line in lines):
+                    for line in lines:
+                        if line.startswith(('-', '*')):
+                            # 去除前导符号并清理
+                            point = line.lstrip('-* ').strip()
+                            if point:
+                                knowledge_points.append(point)
+                else:
+                    # 整段作为一个知识点
+                    knowledge_points.append(knowledge_summary_section)
+            except Exception as e:
+                print(f"提取知识点时出错: {str(e)}")
+                # 如果出错，返回空列表
+                pass
+        
+        return knowledge_points
+    
+    @staticmethod
+    def generate_knowledge_cards(problem, solution_text):
+        """生成知识卡片"""
+        from .models import KnowledgeCard
+        
+        knowledge_points = KnowledgeExtractor.extract_knowledge_points(solution_text)
+        created_cards = []
+        
+        for point in knowledge_points:
+            # 为每个知识点创建一个卡片
+            title = point[:100] if len(point) > 100 else point
+            content = point
+            
+            # 如果知识点过短，可能不是完整的知识点，跳过
+            if len(content) < 10:
+                continue
+                
+            try:
+                card = KnowledgeCard(
+                    user=problem.user,
+                    title=title,
+                    content=content,
+                    problem=problem
+                )
+                card.save()
+                created_cards.append(card)
+            except Exception as e:
+                print(f"创建知识卡片时出错: {str(e)}")
+        
+        return created_cards
+
+class ResourceRecommender:
+    """学习资源推荐系统"""
+    
+    @staticmethod
+    def extract_keywords(text, max_keywords=5):
+        """从文本中提取关键词"""
+        # 简单实现：按词频提取
+        # 实际应用中可使用更复杂的NLP算法如TF-IDF或关键词提取模型
+        import re
+        from collections import Counter
+        
+        # 移除标点和特殊字符
+        text = re.sub(r'[^\w\s]', '', text)
+        
+        # 分词并统计频率（简单实现）
+        words = text.split()
+        word_counts = Counter(words)
+        
+        # 过滤掉停用词（简单实现）
+        stop_words = ['的', '了', '是', '在', '我', '有', '和', '就', '不', '人', '都']
+        for word in stop_words:
+            if word in word_counts:
+                del word_counts[word]
+        
+        # 返回频率最高的几个词
+        return [word for word, _ in word_counts.most_common(max_keywords)]
+    
+    @staticmethod
+    def recommend_resources(problem, max_recommendations=3):
+        """根据问题推荐学习资源"""
+        from .models import LearningResource, ResourceRecommendation
+        
+        # 组合题目内容和解答结果
+        text = ''
+        if problem.text_content:
+            text += problem.text_content + ' '
+        if problem.solution:
+            text += problem.solution
+        
+        # 提取关键词
+        keywords = ResourceRecommender.extract_keywords(text)
+        
+        # 根据关键词查找相关资源
+        recommendations = []
+        for keyword in keywords:
+            # 在标题和描述中搜索关键词
+            resources = LearningResource.objects.filter(
+                models.Q(title__icontains=keyword) | 
+                models.Q(description__icontains=keyword)
+            ).distinct()
+            
+            for resource in resources:
+                # 创建推荐记录
+                recommendation, created = ResourceRecommendation.objects.get_or_create(
+                    user=problem.user,
+                    problem=problem,
+                    resource=resource,
+                    defaults={'relevance_score': 0.5}  # 默认相关性分数
+                )
+                
+                # 如果已存在，提高相关性分数
+                if not created:
+                    recommendation.relevance_score += 0.1
+                    recommendation.save()
+                
+                recommendations.append(recommendation)
+        
+        # 按相关性分数排序并返回前几个
+        recommendations.sort(key=lambda x: x.relevance_score, reverse=True)
+        return recommendations[:max_recommendations] 

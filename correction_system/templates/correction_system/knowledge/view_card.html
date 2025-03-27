@@ -1,0 +1,216 @@
+{% extends 'correction_system/base.html' %}
+{% load custom_filters %}
+
+{% block title %}{{ card.title }} - 智学导师{% endblock %}
+
+{% block extra_head %}
+<style>
+.card-content {
+    font-size: 15px;
+    line-height: 1.7;
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.card-content h3, 
+.card-content h4 {
+    color: #4e6ef2;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(78, 110, 242, 0.2);
+}
+
+/* 增强标题样式 */
+.card-content h4 {
+    font-size: 17px;
+}
+
+/* 列表样式 */
+.card-list-item {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: baseline;
+}
+
+.card-list-number {
+    font-weight: bold;
+    color: #4e6ef2;
+    min-width: 24px;
+    margin-right: 6px;
+}
+
+.card-list-content {
+    flex: 1;
+}
+
+/* 章节标题样式 */
+.section-title {
+    color: #4e6ef2;
+    font-weight: bold;
+    font-size: 17px;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(78, 110, 242, 0.2);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container animation-fade-in py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{% url 'knowledge_cards' %}" class="text-decoration-none text-primary">我的知识卡片</a>
+            <span class="mx-2">/</span>
+            <span class="fw-bold">{{ card.title }}</span>
+        </div>
+        <div>
+            <a href="{% url 'edit_knowledge_card' card.id %}" class="btn me-2" style="background-color: #4e6ef2; color: white;">
+                <i class="fas fa-edit me-1"></i>编辑卡片
+            </a>
+            <a href="{% url 'create_knowledge_card' %}" class="btn" style="background-color: #4e6ef2; color: white;">
+                <i class="fas fa-plus me-1"></i>创建新卡片
+            </a>
+        </div>
+    </div>
+    
+    <!-- 知识卡片详情 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #4e6ef2; color: white;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-lightbulb me-2"></i>
+                <h5 class="mb-0">知识卡片详情</h5>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- 卡片标题和元数据 -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="card-title mb-0">{{ card.title }}</h4>
+                <div class="text-muted small">
+                    <i class="far fa-calendar-alt me-1"></i>{{ card.created_at|date:"Y-m-d H:i" }}
+                </div>
+            </div>
+            
+            <!-- 相关资源 -->
+            <div class="mb-3">
+                {% if card.problem %}
+                <div class="alert alert-info mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-link me-2"></i>
+                        <div>
+                            <span class="fw-bold">关联题目:</span>
+                            <a href="{% url 'view_problem' card.problem.id %}" class="text-decoration-none ms-2">查看题目详情</a>
+                        </div>
+                    </div>
+                </div>
+                {% elif card.homework %}
+                <div class="alert alert-info mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-link me-2"></i>
+                        <div>
+                            <span class="fw-bold">关联作业:</span>
+                            <a href="{% url 'view_homework' card.homework.id %}" class="text-decoration-none ms-2">查看作业详情</a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- 卡片内容 -->
+            <div class="card-content rounded" style="background-color: rgba(248, 249, 250, 0.7);">
+                {% with lines=card.content|split_lines %}
+                    {% for line in lines %}
+                        {% if line|startswith:"## " %}
+                            <div class="section-title">{{ line|slice:"3:" }}</div>
+                        {% elif line|startswith:"# " %}
+                            <div class="section-title">{{ line|slice:"2:" }}</div>
+                        {% elif line|matches:"^\d+\.\s.*" %}
+                            <div class="card-list-item">
+                                <span class="card-list-number">{{ line|get_number }}.</span>
+                                <div class="card-list-content">{{ line|strip_number }}</div>
+                            </div>
+                        {% else %}
+                            <p>{{ line }}</p>
+                        {% endif %}
+                    {% endfor %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- 相关知识卡片 -->
+    {% if related_cards %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #4e6ef2; color: white;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-project-diagram me-2"></i>
+                <h5 class="mb-0">相关知识卡片</h5>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for related_card in related_cards %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ related_card.title }}</h5>
+                            <p class="card-text">{{ related_card.content|truncatechars:100 }}</p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <a href="{% url 'view_knowledge_card' related_card.id %}" class="btn btn-sm" style="background-color: #4e6ef2; color: white;">
+                                <i class="fas fa-eye me-1"></i>查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 推荐学习资源 -->
+    {% if recommended_resources %}
+    <div class="card shadow-sm">
+        <div class="card-header" style="background-color: #4e6ef2; color: white;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-book me-2"></i>
+                <h5 class="mb-0">推荐学习资源</h5>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for resource in recommended_resources %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ resource.title }}</h5>
+                            <p class="card-text">{{ resource.description|truncatechars:100 }}</p>
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge {% if resource.resource_type == 'VIDEO' %}bg-danger{% elif resource.resource_type == 'ARTICLE' %}bg-info{% elif resource.resource_type == 'QUIZ' %}bg-warning{% else %}bg-secondary{% endif %} me-2">
+                                    {{ resource.get_resource_type_display }}
+                                </span>
+                                {% if resource.avg_rating %}
+                                <span class="text-warning">
+                                    <i class="fas fa-star"></i>
+                                    {{ resource.avg_rating|floatformat:1 }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm" style="background-color: #4e6ef2; color: white;">
+                                <i class="fas fa-eye me-1"></i>查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

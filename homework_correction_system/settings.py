@@ -81,7 +81,6 @@ DATABASES = {
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
 
@@ -104,9 +103,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "zh-hans"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "Asia/Shanghai"
 
 USE_I18N = True
 
@@ -132,5 +131,41 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # DeepSeek API 配置
 DEEPSEEK_API_KEY = 'sk-f83ac616b83247f99ca96ab6c5694132'
+
+# 认证相关设置
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
+# 表单部件样式设置
+# 注意：这里不能直接设置 attrs 属性，因为表单部件是类而不是实例
+# 我们将在应用的 forms.py 中自定义表单部件样式
+
+# 移除以下不正确的设置
+# from django import forms
+# FORM_RENDERER = 'django.forms.renderers.TemplatesSetting'
+
+# # 设置表单小部件的默认样式类
+# WIDGET_CLASSES = {
+#     'default': 'form-control',
+#     'checkbox': 'form-check-input',
+#     'radio': 'form-check-input',
+#     'select': 'form-select',
+# }
+
+# # 应用表单样式
+# forms.TextInput.attrs['class'] = WIDGET_CLASSES['default']
+# forms.EmailInput.attrs['class'] = WIDGET_CLASSES['default']
+# forms.URLInput.attrs['class'] = WIDGET_CLASSES['default']
+# forms.NumberInput.attrs['class'] = WIDGET_CLASSES['default']
+# forms.PasswordInput.attrs['class'] = WIDGET_CLASSES['default']
+# forms.Textarea.attrs['class'] = WIDGET_CLASSES['default']
+# forms.DateInput.attrs['class'] = WIDGET_CLASSES['default']
+# forms.DateTimeInput.attrs['class'] = WIDGET_CLASSES['default']
+# forms.TimeInput.attrs['class'] = WIDGET_CLASSES['default']
+# forms.CheckboxInput.attrs['class'] = WIDGET_CLASSES['checkbox']
+# forms.RadioSelect.attrs['class'] = WIDGET_CLASSES['radio']
+# forms.Select.attrs['class'] = WIDGET_CLASSES['select']
+# forms.SelectMultiple.attrs['class'] = WIDGET_CLASSES['select']
 
 

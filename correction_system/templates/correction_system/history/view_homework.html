@@ -1,0 +1,223 @@
+{% extends 'correction_system/base.html' %}
+{% load custom_filters %}
+
+{% block title %}作业批改详情 - 智学导师{% endblock %}
+
+{% block content %}
+<div class="container animation-fade-in py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{% url 'learning_history' %}" class="text-decoration-none text-primary">学习历史</a>
+            <span class="mx-2">/</span>
+            <a href="{% url 'homework_history' %}" class="text-decoration-none text-primary">作业批改历史</a>
+            <span class="mx-2">/</span>
+            <span class="fw-bold">作业详情</span>
+        </div>
+        <a href="{% url 'correct_homework' %}" class="btn" style="background-color: #4e6ef2; color: white;">
+            <i class="fas fa-plus me-1"></i>批改新作业
+        </a>
+    </div>
+    
+    <!-- 作业信息卡片 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #4e6ef2; color: white;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-clipboard-check me-2"></i>
+                <h5 class="mb-0">作业批改结果</h5>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 class="border-bottom pb-2 mb-3">作业图片</h5>
+                    {% if homework.image %}
+                    <div class="text-center mb-3">
+                        <img src="{{ homework.image.url }}" alt="作业图片" class="img-fluid rounded border" style="max-height: 500px;">
+                    </div>
+                    {% else %}
+                    <p class="text-muted">无作业图片</p>
+                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted">提交时间: {{ homework.created_at|date:"Y-m-d H:i:s" }}</small>
+                        <span class="badge {% if homework.score >= 90 %}bg-success{% elif homework.score >= 60 %}bg-primary{% else %}bg-danger{% endif %} p-2">
+                            <i class="fas fa-star me-1"></i>{{ homework.score }} 分
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <h5 class="border-bottom pb-2 mb-3">批改结果</h5>
+                    {% if homework.correction_status == 'COMPLETED' %}
+                        <!-- 批改结果展示 -->
+                        <div class="mb-4">
+                            <p class="fw-bold mb-2">总体评价:</p>
+                            <div class="p-3 rounded" style="background-color: rgba(78, 110, 242, 0.1);">
+                                {% if homework.correction_result %}
+                                    <div class="ai-feedback">
+                                        {{ homework.correction_result|markdown_to_html|safe }}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted fst-italic">暂无批改结果</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- 优点和缺点 -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="fw-bold mb-2"><i class="fas fa-thumbs-up text-success me-1"></i>优点:</p>
+                                <ul class="list-group">
+                                    {% for strength in strengths %}
+                                    <li class="list-group-item border-success">{{ strength }}</li>
+                                    {% empty %}
+                                    <li class="list-group-item text-muted">未提供优点</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="fw-bold mb-2"><i class="fas fa-thumbs-down text-danger me-1"></i>需改进:</p>
+                                <ul class="list-group">
+                                    {% for weakness in weaknesses %}
+                                    <li class="list-group-item border-danger">{{ weakness }}</li>
+                                    {% empty %}
+                                    <li class="list-group-item text-muted">未提供需改进项</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- 老师反馈 -->
+                        {% if homework.feedback %}
+                        <div class="mt-4">
+                            <p class="fw-bold mb-2"><i class="fas fa-comment-dots me-1"></i>反馈建议:</p>
+                            <div class="p-3 rounded" style="background-color: rgba(78, 110, 242, 0.1);">
+                                <div class="ai-feedback">
+                                    {{ homework.feedback|markdown_to_html|safe }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-spinner fa-spin me-2"></i>作业批改处理中...
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 相关知识卡片 -->
+    {% if related_cards %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #4e6ef2; color: white;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-lightbulb me-2"></i>
+                <h5 class="mb-0">相关知识卡片</h5>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for card in related_cards %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ card.title }}</h5>
+                            <p class="card-text">{{ card.content|truncatechars:100 }}</p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <a href="{% url 'view_knowledge_card' card.id %}" class="btn btn-sm" style="background-color: #4e6ef2; color: white;">
+                                <i class="fas fa-eye me-1"></i>查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 推荐学习资源 -->
+    {% if recommended_resources %}
+    <div class="card shadow-sm">
+        <div class="card-header" style="background-color: #4e6ef2; color: white;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-book me-2"></i>
+                <h5 class="mb-0">推荐学习资源</h5>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for resource in recommended_resources %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ resource.title }}</h5>
+                            <p class="card-text">{{ resource.description|truncatechars:100 }}</p>
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge {% if resource.resource_type == 'VIDEO' %}bg-danger{% elif resource.resource_type == 'ARTICLE' %}bg-info{% elif resource.resource_type == 'QUIZ' %}bg-warning{% else %}bg-secondary{% endif %} me-2">
+                                    {{ resource.get_resource_type_display }}
+                                </span>
+                                {% if resource.avg_rating %}
+                                <span class="text-warning">
+                                    <i class="fas fa-star"></i>
+                                    {{ resource.avg_rating|floatformat:1 }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm" style="background-color: #4e6ef2; color: white;">
+                                <i class="fas fa-eye me-1"></i>查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.ai-feedback {
+    font-size: 14px;
+    line-height: 1.6;
+}
+.ai-feedback h3 {
+    color: #4e6ef2;
+    font-size: 18px;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(78, 110, 242, 0.2);
+}
+.ai-feedback h4 {
+    color: #4267B2;
+    font-size: 16px;
+    margin-top: 14px;
+    margin-bottom: 6px;
+}
+.ai-feedback h5 {
+    color: #555;
+    font-size: 15px;
+    margin-top: 12px;
+    margin-bottom: 6px;
+}
+.ai-feedback strong {
+    color: #333;
+}
+.ai-feedback em {
+    color: #666;
+}
+.ai-feedback li {
+    margin-bottom: 4px;
+}
+.ai-feedback hr {
+    margin: 12px 0;
+    border-color: rgba(78, 110, 242, 0.1);
+}
+</style>
+{% endblock %} 
