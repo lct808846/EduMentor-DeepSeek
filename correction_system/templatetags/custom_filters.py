@@ -1,144 +1,148 @@
 from django import template
 import re
+import markdown
+from django.utils.safestring import mark_safe
 
 register = template.Library()
 
 @register.filter
-def trim(value):
-    """删除字符串前后的空白字符"""
-    return value.strip()
+def trim(text):
+    """移除字符串前后的空白"""
+    if text:
+        return text.strip()
+    return ""
 
 @register.filter
-def split_lines(value):
-    """将文本拆分为行列表"""
-    if not value:
-        return []
-    return value.split('\n')
+def split_lines(text):
+    """将文本分割成行"""
+    if text:
+        return text.splitlines()
+    return []
 
 @register.filter
-def startswith(value, arg):
-    """检查字符串是否以指定文本开头"""
-    return value.startswith(arg)
+def startswith(text, start):
+    """检查文本是否以特定字符串开始"""
+    if text and start:
+        return text.startswith(start)
+    return False
 
 @register.filter
-def matches(value, pattern):
-    """检查字符串是否匹配指定的正则表达式模式"""
-    return bool(re.match(pattern, value))
+def matches(text, pattern):
+    """检查文本是否匹配指定的正则表达式模式"""
+    if text and pattern:
+        return bool(re.match(pattern, text))
+    return False
 
 @register.filter
-def get_number(value):
-    """从列表项中提取数字"""
-    match = re.match(r'(\d+)\.\s', value)
+def get_number(line):
+    """从列表项中提取编号"""
+    if not line:
+        return ""
+    match = re.match(r'^(\d+\.\s*)', line)
     if match:
         return match.group(1)
     return ""
 
 @register.filter
-def strip_number(value):
-    """从列表项中移除序号部分"""
-    return re.sub(r'^\d+\.\s', '', value)
+def strip_number(line):
+    """移除列表项的编号"""
+    if not line:
+        return ""
+    return re.sub(r'^\d+\.\s*', '', line)
 
 @register.filter
-def replace(value, arg):
-    """替换字符串中的指定内容"""
-    if value is None:
-        return ""
-    parts = arg.split(":")
-    if len(parts) != 2:
-        return value
-    return value.replace(parts[0], parts[1])
+def replace(text, args):
+    """
+    替换文本中的内容
+    用法: {{ text|replace:"old,new" }}
+    """
+    if not text or not args:
+        return text
+    
+    old, new = args.split(',', 1)
+    return text.replace(old, new)
 
 @register.filter
-def extract_section(value, section_name):
-    """从文本中提取指定章节的内容"""
-    if not value or not section_name:
+def extract_section(text, section_name):
+    """
+    从文本中提取指定的章节内容
+    支持 # 章节名 和 ## 章节名 两种格式
+    返回的内容是安全的HTML
+    """
+    if not text or not section_name:
         return ""
     
-    # 尝试匹配'## 题目理解'和'# 题目理解'两种格式
-    pattern1 = r'## ' + re.escape(section_name) + r'.*?(?=## |# |$)'
-    pattern2 = r'# ' + re.escape(section_name) + r'.*?(?=## |# |$)'
+    # 尝试匹配 '# 章节名' 或 '## 章节名' 格式
+    pattern1 = rf"(?:^|\n)#\s+{re.escape(section_name)}\s*?\n(.*?)(?:\n#\s+|$)"
+    pattern2 = rf"(?:^|\n)##\s+{re.escape(section_name)}\s*?\n(.*?)(?:\n##\s+|$)"
     
-    # 先尝试匹配'##'格式
-    match = re.search(pattern1, value, re.DOTALL)
-    if match:
-        section_content = match.group(0)
-        # 移除章节标题
-        section_content = re.sub(r'^## ' + re.escape(section_name) + r'.*?\n', '', section_content)
-        return section_content.strip()
+    # 尝试所有可能的模式
+    match = re.search(pattern1, text, re.DOTALL)
+    if not match:
+        match = re.search(pattern2, text, re.DOTALL)
     
-    # 再尝试匹配'#'格式
-    match = re.search(pattern2, value, re.DOTALL)
+    # 如果匹配成功，返回内容部分（去除前后空白）
     if match:
-        section_content = match.group(0)
-        # 移除章节标题
-        section_content = re.sub(r'^# ' + re.escape(section_name) + r'.*?\n', '', section_content)
-        return section_content.strip()
+        content = match.group(1).strip()
+        return mark_safe(markdown_to_html(content))
     
-    # 尝试匹配带"解题过程"的任何格式（更宽松的匹配）
-    pattern3 = r'[#]+ .*?' + re.escape(section_name) + r'.*?(?=[#]+ |$)'
-    match = re.search(pattern3, value, re.DOTALL)
-    if match:
-        section_content = match.group(0)
-        # 移除章节标题（匹配任何数量的#）
-        section_content = re.sub(r'^[#]+ .*?' + re.escape(section_name) + r'.*?\n', '', section_content)
-        return section_content.strip()
+    # 备用方案：尝试更宽松的匹配（不依赖格式）
+    alt_pattern = rf"(?:^|\n){re.escape(section_name)}[：:]\s*(.*?)(?:\n(?:[^a-zA-Z0-9\s])+\s*\w|$)"
+    alt_match = re.search(alt_pattern, text, re.DOTALL)
+    if alt_match:
+        return mark_safe(markdown_to_html(alt_match.group(1).strip()))
     
     return ""
 
 @register.filter
-def detect_sections(value):
-    """检测文本中的所有章节标题，用于调试"""
-    if not value:
-        return ""
+def detect_sections(text):
+    """调试用：检测文本中的所有章节标题"""
+    if not text:
+        return []
     
-    # 匹配所有章节标题
-    sections = re.findall(r'(^|\n)[#]+ (.*?)($|\n)', value, re.MULTILINE)
-    result = []
-    for section in sections:
-        if len(section) >= 2:
-            result.append(section[1].strip())
-    
-    return ", ".join(result) if result else "未找到章节"
+    # 匹配 # 标题 或 ## 标题 格式
+    sections = re.findall(r'(?:^|\n)(#|##)\s+(.*?)\s*(?:\n|$)', text)
+    return [s[1] for s in sections]
 
 @register.filter
-def markdown_to_html(value):
-    """将简单的Markdown格式转换为HTML"""
-    if not value:
+def markdown_to_html(text):
+    """
+    将Markdown格式的文本转换为HTML
+    返回标记为安全的HTML字符串
+    """
+    if not text:
         return ""
-        
-    # 处理标题（确保标题前有换行符，避免匹配中间的#）
-    value = re.sub(r'(^|\n)# (.*?)($|\n)', r'\1<h3 class="fw-bold mt-3 mb-2">\2</h3>\3', value)
-    value = re.sub(r'(^|\n)## (.*?)($|\n)', r'\1<h4 class="fw-bold mt-2 mb-1">\2</h4>\3', value)
-    value = re.sub(r'(^|\n)### (.*?)($|\n)', r'\1<h5 class="fw-bold mt-2 mb-1">\2</h5>\3', value)
     
-    # 处理数字列表（例如：1. **标题**：内容）
-    value = re.sub(r'(^|\n)(\d+)\. \*\*(.*?)\*\*：(.*?)($|\n)', 
-                  r'\1<div class="list-item"><span class="list-number">\2.</span> <strong class="list-title">\3：</strong><span class="list-content">\4</span></div>\5', 
-                  value)
+    # 创建Markdown转换器，启用扩展
+    md = markdown.Markdown(
+        extensions=['extra', 'nl2br', 'sane_lists', 'tables'],
+        output_format='html5'
+    )
     
-    # 处理数字列表（无冒号版本）
-    value = re.sub(r'(^|\n)(\d+)\. \*\*(.*?)\*\*(.*?)($|\n)', 
-                  r'\1<div class="list-item"><span class="list-number">\2.</span> <strong class="list-title">\3</strong><span class="list-content">\4</span></div>\5', 
-                  value)
+    # 自定义处理常见Markdown样式
     
-    # 处理普通数字列表
-    value = re.sub(r'(^|\n)(\d+)\. (.*?)($|\n)', 
-                  r'\1<div class="list-item"><span class="list-number">\2.</span> <span class="list-content">\3</span></div>\4', 
-                  value)
+    # 处理数学公式 (使用 $ 包裹的内容)
+    text = re.sub(r'\$([^$]+)\$', r'<span class="math">\1</span>', text)
     
-    # 处理强调（粗体）
-    value = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', value)
+    # 生成HTML
+    html = md.convert(text)
     
-    # 处理强调（斜体）
-    value = re.sub(r'\*(.*?)\*', r'<em>\1</em>', value)
+    # 特殊后处理 - 添加类和样式
     
-    # 处理无序列表
-    value = re.sub(r'(^|\n)- (.*?)($|\n)', r'\1<div class="list-item"><span class="list-bullet">•</span> <span class="list-content">\2</span></div>\3', value)
+    # 处理有序列表项，添加蓝色编号
+    html = re.sub(
+        r'<li>(\d+\.\s*)(.*?)</li>', 
+        r'<li class="solution-list-item"><span class="solution-list-number">\1</span><span class="solution-list-content">\2</span></li>',
+        html
+    )
     
-    # 处理分隔线
-    value = re.sub(r'(^|\n)---+($|\n)', r'\1<hr>\2', value)
+    # 返回标记为安全的HTML
+    return mark_safe(html)
+
+@register.filter
+def split_by_newline(text):
+    """将文本按换行符分割成列表"""
+    if not text:
+        return []
     
-    # 将换行符转换为HTML换行
-    value = value.replace('\n', '<br>')
-    
-    return value 
+    return [line.strip() for line in text.split('\n') if line.strip()] 

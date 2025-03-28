@@ -48,6 +48,7 @@ class DeepSeekService:
     def extract_text_from_image(self, image_path):
         """使用Tesseract OCR从图片中提取文字"""
         if not TESSERACT_AVAILABLE:
+            print("错误：pytesseract未正确安装，无法识别图片文字")
             return "错误：pytesseract未正确安装，无法识别图片文字"
         
         try:
@@ -58,12 +59,18 @@ class DeepSeekService:
             # 如果您在安装时选择了中文语言包，可以使用chi_sim(简体中文)或chi_tra(繁体中文)
             extracted_text = pytesseract.image_to_string(img, lang='chi_sim+eng')
             
-            if not extracted_text.strip():
-                return "未能从图片中识别出文字，请确保图片清晰且包含文字内容"
+            if not extracted_text or not extracted_text.strip():
+                print("警告：OCR未能提取到任何文本内容")
+                # 返回默认文本，确保文本字段不为空
+                return "OCR未能识别出文字，可能是图片清晰度不够或者不包含文本内容。"
                 
+            # 打印识别到的文字（用于调试）
+            print(f"OCR识别结果：{extracted_text[:100]}...")
             return extracted_text
         except Exception as e:
-            return f"图片文字识别错误: {str(e)}"
+            error_msg = f"图片文字识别错误: {str(e)}"
+            print(error_msg)
+            return error_msg
     
     def solve_text_problem(self, problem_text):
         """解答文字题目"""
@@ -133,45 +140,48 @@ class DeepSeekService:
         """批改作业（使用OCR识别后再处理）"""
         # 先使用Tesseract OCR识别图片中的文字
         extracted_text = self.extract_text_from_image(image_path)
+        print(f"OCR识别结果: {extracted_text[:100]}...")
+        
+        # 确保text_content不为空，即使OCR识别失败
+        if not extracted_text or not extracted_text.strip():
+            extracted_text = "OCR未能识别出文字，请确保图片清晰且包含文字内容。"
         
         # 如果识别失败，返回错误信息
-        if extracted_text.startswith("错误") or extracted_text.startswith("图片文字识别错误") or extracted_text.startswith("未能"):
+        if extracted_text.startswith("错误") or extracted_text.startswith("图片文字识别错误"):
             return {
-                'correction_result': extracted_text,
+                'correction_result': "无法识别作业内容，请上传更清晰的图片。",
                 'score': 0,
-                'feedback': extracted_text
+                'feedback': extracted_text,
+                'is_correct': False,
+                'text_content': extracted_text,  # 确保text_content有值
+                'problem_type': '未知',
+                'answer': '',
+                'correct_answer': '',
+                'strengths': ["提交作业，积极参与学习"],
+                'weaknesses': ["提供的图片内容无法识别，请重新上传更清晰的图片"]
             }
-            
+        
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
         }
         
-        # 使用结构化提示词模板
-        system_prompt = """你是一个专业的教师，负责批改学生作业。请按照以下固定结构提供批改结果：
+        # 简化提示词，确保模型能生成有用的回复
+        system_prompt = """你是一位专业教师，请批改学生的作业内容。分析学生作业，给出以下信息：
+1. 分数评价（0-100分）
+2. 题目类型（选择题/填空题/计算题等）
+3. 学生的答案是什么
+4. 正确答案是什么
+5. 学生的答案是否正确
+6. 如果错误，分析错误原因
+7. 详细解题过程
+8. 学生做得好的方面
+9. 学生需要改进的地方
 
-## 作业内容概述
-[简要描述学生作业的内容和题目]
+请直接回复，不需要格式化为JSON。"""
 
-## 批改详情
-[按题目顺序提供详细批改意见]
-
-## 错误分析
-[指出学生的错误并分析原因]
-
-## 正确解答
-[提供每道题的正确答案和解题过程]
-
-## 改进建议
-[给出具体的学习建议]
-
-## 总体评分
-[给出一个总体评分（满分100分），并用粗体标记]
-
-请确保每个部分都有内容，并严格按照此结构回答。"""
-        
         payload = {
-            "model": "deepseek-chat",  # 使用文本模型
+            "model": "deepseek-chat",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"请批改以下学生作业内容：\n\n{extracted_text}"}
@@ -179,45 +189,219 @@ class DeepSeekService:
         }
         
         try:
+            print("调用DeepSeek API...")
             response = requests.post(self.api_url, headers=headers, json=payload)
             response.raise_for_status()
             result = response.json()
             
             # 获取批改内容
             correction_text = result.get('choices', [{}])[0].get('message', {}).get('content', '未能获取批改结果')
+            print(f"API返回内容: {correction_text[:100]}...")
             
-            # 从批改文本中提取分数（改进提取逻辑）
+            # 提取评分
+            import re
+            
+            # 尝试提取分数
+            score_patterns = [
+                r'分[数|值][:：]?\s*(\d+)',
+                r'评分[:：]?\s*(\d+)',
+                r'得分[:：]?\s*(\d+)',
+                r'[\(（](\d+)分[\)）]',
+                r'(\d+)\s*[/／]\s*100',
+                r'(\d+)\s*分'
+            ]
+            
             score = 0
-            for line in correction_text.split('\n'):
-                if '总体评分' in line or '分' in line and any(char.isdigit() for char in line):
-                    # 提取数字
-                    digits = ''.join(c for c in line if c.isdigit() or c == '.')
+            for pattern in score_patterns:
+                score_matches = re.findall(pattern, correction_text)
+                if score_matches:
                     try:
-                        score = float(digits)
-                        if score > 100:  # 确保分数不超过100
-                            score = 100
-                        break
+                        score = int(score_matches[0])
+                        if 0 <= score <= 100:  # 确保分数在合理范围内
+                            break
                     except:
-                        pass
+                        continue
             
-            # 添加OCR识别文本到批改结果
-            full_correction_result = f"""Tesseract OCR识别文本结果:
-{extracted_text}
-
----批改结果开始---
-{correction_text}"""
+            # 判断是否正确
+            correct_indicators = ['正确', '对的', '答对了', '完全正确', '答案正确']
+            incorrect_indicators = ['错误', '不正确', '不对', '答错了', '有误']
             
+            is_correct = False
+            
+            # 检查是否包含正确指示词
+            if any(indicator in correction_text for indicator in correct_indicators):
+                # 再检查是否同时包含否定词
+                if not any(neg in correction_text for neg in ['不', '没有']):
+                    is_correct = True
+            
+            # 如果包含错误指示词，则确认为错误
+            if any(indicator in correction_text for indicator in incorrect_indicators):
+                is_correct = False
+            
+            # 题目类型识别
+            problem_type = '未知'
+            type_patterns = [
+                r'题[目]?类型[:：]?\s*([^，。\n]+)',
+                r'这[是]?[一]?道([^，。\n]+)题'
+            ]
+            
+            for pattern in type_patterns:
+                type_matches = re.search(pattern, correction_text)
+                if type_matches:
+                    problem_type = type_matches.group(1).strip()
+                    break
+            
+            # 常见题型关键词检测
+            if problem_type == '未知':
+                type_keywords = {
+                    '选择题': ['选择题', '单选题', '多选题', 'ABCD', '选项'],
+                    '填空题': ['填空题', '填写'],
+                    '计算题': ['计算题', '计算', '算式'],
+                    '解答题': ['解答题', '证明题'],
+                    '判断题': ['判断题', '判断正误']
+                }
+                
+                for type_name, keywords in type_keywords.items():
+                    if any(keyword in correction_text for keyword in keywords):
+                        problem_type = type_name
+                        break
+            
+            # 提取学生答案
+            student_answer = ''
+            answer_patterns = [
+                r'学生[的]?答案[:：]?\s*([^，。\n]+)',
+                r'学生[的]?回答[:：]?\s*([^，。\n]+)',
+                r'学生选择了\s*([^，。\n]+)'
+            ]
+            
+            for pattern in answer_patterns:
+                answer_matches = re.search(pattern, correction_text)
+                if answer_matches:
+                    student_answer = answer_matches.group(1).strip()
+                    break
+            
+            # 提取正确答案
+            correct_answer = ''
+            correct_patterns = [
+                r'正确答案[:：]?\s*([^，。\n]+)',
+                r'正确[的]?答案应该是\s*([^，。\n]+)',
+                r'答案应该是\s*([^，。\n]+)'
+            ]
+            
+            for pattern in correct_patterns:
+                correct_matches = re.search(pattern, correction_text)
+                if correct_matches:
+                    correct_answer = correct_matches.group(1).strip()
+                    break
+            
+            # 如果是选择题，尝试直接从文本中提取选项字母
+            if '选择题' in problem_type:
+                # 针对选择题的特殊处理
+                letter_match = re.search(r'[正确]?答案[是为应该]?[：:]?\s*([A-D])', correction_text)
+                if letter_match:
+                    correct_answer = letter_match.group(1).strip()
+                
+                student_letter_match = re.search(r'学生[选择回答]了\s*([A-D])', correction_text)
+                if student_letter_match:
+                    student_answer = student_letter_match.group(1).strip()
+            
+            # 提取错误分析
+            error_analysis = ''
+            if not is_correct:
+                error_patterns = [
+                    r'错误分析[:：]?\s*([\s\S]+?)(?=\n\n|\n[A-Z]|$)',
+                    r'错误原因[:：]?\s*([\s\S]+?)(?=\n\n|\n[A-Z]|$)',
+                    r'错误在于[:：]?\s*([\s\S]+?)(?=\n\n|\n[A-Z]|$)'
+                ]
+                
+                for pattern in error_patterns:
+                    error_matches = re.search(pattern, correction_text)
+                    if error_matches:
+                        error_analysis = error_matches.group(1).strip()
+                        break
+                
+                # 如果没找到特定的错误分析部分，使用整个批改内容
+                if not error_analysis:
+                    error_analysis = "答案有误，请参考详细解析。"
+            
+            # 提取学生优点
+            strengths = []
+            # 多种可能的标题格式
+            strength_sections = re.findall(r'(?:优点|做得好的[地方方面]|值得肯定的[地方方面]|表现良好的[地方方面])[:：]?\s*([\s\S]+?)(?=\n\n|需要改进|改进之处|不足之处|$)', correction_text)
+            
+            if strength_sections:
+                # 取第一个匹配的部分
+                section = strength_sections[0].strip()
+                # 按行或按数字序号拆分
+                if '\n' in section:
+                    # 多行情况
+                    lines = [line.strip() for line in section.split('\n') if line.strip()]
+                    for line in lines:
+                        # 去除数字前缀
+                        clean_line = re.sub(r'^\d+[.、]\s*', '', line).strip()
+                        if clean_line:
+                            strengths.append(clean_line)
+                else:
+                    # 单行情况
+                    strengths.append(section)
+            
+            # 如果未找到优点，添加一个通用优点
+            if not strengths and is_correct:
+                strengths.append("答案正确，思路清晰。")
+            elif not strengths:
+                strengths.append("尝试解答问题，积极参与学习。")
+            
+            # 提取需要改进的地方
+            weaknesses = []
+            weakness_sections = re.findall(r'(?:需要改进|改进之处|不足之处|缺点|有待提高的[地方方面])[:：]?\s*([\s\S]+?)(?=\n\n|优点|做得好|$)', correction_text)
+            
+            if weakness_sections:
+                section = weakness_sections[0].strip()
+                if '\n' in section:
+                    lines = [line.strip() for line in section.split('\n') if line.strip()]
+                    for line in lines:
+                        clean_line = re.sub(r'^\d+[.、]\s*', '', line).strip()
+                        if clean_line:
+                            weaknesses.append(clean_line)
+                else:
+                    weaknesses.append(section)
+            
+            # 如果找不到改进点，但答案错误，添加通用改进建议
+            if not weaknesses and not is_correct:
+                weaknesses.append("需要仔细审题，理解题目要求。")
+                weaknesses.append("建议复习相关知识点，加强练习。")
+            
+            # 返回完整结果
             return {
-                'correction_result': full_correction_result,
+                'text_content': extracted_text,
+                'correction_result': correction_text,  # 保存完整批改内容
                 'score': score,
-                'feedback': correction_text  # 简单起见，使用相同的文本作为反馈
+                'is_correct': is_correct,
+                'problem_type': problem_type,
+                'answer': student_answer,
+                'correct_answer': correct_answer,
+                'error_analysis': error_analysis,
+                'strengths': strengths,
+                'weaknesses': weaknesses,
+                'feedback': correction_text  # 保持兼容性
             }
+            
         except Exception as e:
+            print(f"批改过程出错: {str(e)}")
+            # 出错时返回基本信息
             return {
-                'correction_result': f"批改过程出错: {str(e)}",
+                'text_content': extracted_text,
+                'correction_result': f"批改过程遇到错误: {str(e)}",
                 'score': 0,
+                'is_correct': False,
+                'problem_type': '未知',
+                'answer': '',
+                'correct_answer': '',
+                'error_analysis': f"系统错误: {str(e)}",
+                'strengths': ["提交作业，积极参与学习"],
+                'weaknesses': ["系统暂时无法给出具体改进建议"],
                 'feedback': f"批改过程出错: {str(e)}"
-            } 
+            }
 
 class KnowledgeExtractor:
     """从解答结果中提取知识点"""

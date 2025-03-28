@@ -1,0 +1,169 @@
+{% extends 'correction_system/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header text-white" style="background-color: #4e6ef2;">
+            <h3 class="mb-0">{% if form.instance.id %}编辑知识卡片{% else %}创建知识卡片{% endif %}</h3>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="id_title" class="form-label">标题</label>
+                    <input type="text" class="form-control" id="id_title" name="title" value="{{ form.title.value|default:'' }}" required>
+                    {% if form.title.errors %}
+                    <div class="text-danger">
+                        {% for error in form.title.errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="id_content" class="form-label">内容 (支持Markdown格式)</label>
+                    <textarea class="form-control" id="id_content" name="content" rows="12" required>{{ form.content.value|default:'' }}</textarea>
+                    {% if form.content.errors %}
+                    <div class="text-danger">
+                        {% for error in form.content.errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <small class="form-text text-muted">
+                        <i class="fas fa-info-circle"></i> 支持Markdown语法: 
+                        <code># 标题</code>, 
+                        <code>**粗体**</code>, 
+                        <code>*斜体*</code>, 
+                        <code>- 列表项</code>, 
+                        <code>[链接](URL)</code>
+                    </small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="id_related_problem" class="form-label">关联题目 (可选)</label>
+                    <select class="form-select" id="id_related_problem" name="related_problem">
+                        <option value="">-- 不关联题目 --</option>
+                        {% for problem in problems %}
+                        <option value="{{ problem.id }}" {% if form.related_problem.value == problem.id|stringformat:"i" %}selected{% endif %}>
+                            {{ problem.problem|truncatechars:100 }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% if form.related_problem.errors %}
+                    <div class="text-danger">
+                        {% for error in form.related_problem.errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'knowledge_cards' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i> 取消
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> {% if form.instance.id %}保存修改{% else %}创建卡片{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {% if form.instance.id %}
+    <div class="card mt-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Markdown 预览</h5>
+        </div>
+        <div class="card-body">
+            <div id="markdown-preview" class="markdown-content">
+                <!-- 预览内容将通过JavaScript显示 -->
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .card {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .card-header {
+        border-radius: 8px 8px 0 0 !important;
+    }
+    
+    .btn-primary {
+        background-color: #4e6ef2;
+        border-color: #4e6ef2;
+    }
+    
+    .btn-primary:hover, .btn-primary:focus {
+        background-color: #3d5ad8;
+        border-color: #3d5ad8;
+    }
+    
+    .markdown-content h1,
+    .markdown-content h2,
+    .markdown-content h3,
+    .markdown-content h4,
+    .markdown-content h5,
+    .markdown-content h6 {
+        color: #4e6ef2;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .markdown-content ul,
+    .markdown-content ol {
+        padding-left: 2rem;
+    }
+    
+    .markdown-content blockquote {
+        border-left: 4px solid #4e6ef2;
+        padding-left: 1rem;
+        margin-left: 0;
+        color: #666;
+    }
+    
+    .markdown-content code {
+        color: #4e6ef2;
+        background-color: rgba(78, 110, 242, 0.1);
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.2rem;
+    }
+    
+    /* 表单聚焦时的边框颜色 */
+    .form-control:focus, .form-select:focus {
+        border-color: #4e6ef2;
+        box-shadow: 0 0 0 0.25rem rgba(78, 110, 242, 0.25);
+    }
+</style>
+
+{% block extra_js %}
+{% if form.instance.id %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    // 实时预览功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const contentTextarea = document.getElementById('id_content');
+        const previewDiv = document.getElementById('markdown-preview');
+        
+        function updatePreview() {
+            previewDiv.innerHTML = marked.parse(contentTextarea.value);
+        }
+        
+        // 初始预览
+        updatePreview();
+        
+        // 内容变化时更新预览
+        contentTextarea.addEventListener('input', updatePreview);
+    });
+</script>
+{% endif %}
+{% endblock %}
+{% endblock %} 

@@ -5,6 +5,107 @@
 
 {% block extra_head %}
 <style>
+/* 调试样式 */
+.debug-info {
+    background-color: #ffeeee;
+    border: 1px solid #ffcccc;
+    padding: 10px;
+    margin: 10px 0;
+    font-family: monospace;
+    white-space: pre-wrap;
+}
+
+/* 统一样式定义 */
+.section-title {
+    color: #4e6ef2;
+    border-bottom: 2px solid #4e6ef2;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+
+.markdown-content {
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.markdown-content h1, 
+.markdown-content h2, 
+.markdown-content h3, 
+.markdown-content h4 {
+    color: #4e6ef2;
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+.markdown-content ul, 
+.markdown-content ol {
+    padding-left: 20px;
+    margin-bottom: 16px;
+}
+
+.markdown-content p {
+    margin-bottom: 16px;
+}
+
+.markdown-content img {
+    max-width: 100%;
+    height: auto;
+    margin: 10px 0;
+    border-radius: 4px;
+}
+
+.markdown-content pre, 
+.markdown-content code {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.markdown-content pre {
+    padding: 16px;
+    overflow-x: auto;
+    margin-bottom: 16px;
+}
+
+.markdown-content code {
+    padding: 2px 4px;
+    color: #4e6ef2;
+}
+
+.markdown-content blockquote {
+    padding-left: 16px;
+    margin-left: 0;
+    border-left: 4px solid #4e6ef2;
+    color: #6c757d;
+}
+
+/* 卡片阴影效果 */
+.card {
+    border-radius: 8px;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    border-radius: 0;
+}
+
+/* 按钮统一样式 */
+.btn-primary {
+    background-color: #4e6ef2;
+    border-color: #4e6ef2;
+}
+
+.btn-primary:hover {
+    background-color: #3d5ad8;
+    border-color: #3d5ad8;
+}
+
 .problem-content {
     font-size: 16px;
     line-height: 1.6;
@@ -56,243 +157,193 @@
 .solution-list-content {
     flex: 1;
 }
-
-/* 章节标题样式 */
-.section-title {
-    color: #4e6ef2;
-    font-weight: bold;
-    font-size: 17px;
-    margin-top: 20px;
-    margin-bottom: 10px;
-    padding-bottom: 5px;
-    border-bottom: 1px solid rgba(78, 110, 242, 0.2);
-}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container animation-fade-in py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <a href="{% url 'learning_history' %}" class="text-decoration-none text-primary">学习历史</a>
-            <span class="mx-2">/</span>
-            <a href="{% url 'problem_history' %}" class="text-decoration-none text-primary">题目历史</a>
-            <span class="mx-2">/</span>
-            <span class="fw-bold">题目详情</span>
-        </div>
-        <div>
-            <a href="{% url 'create_knowledge_card' %}?problem_id={{ problem.id }}" class="btn me-2" style="background-color: #4e6ef2; color: white;">
-                <i class="fas fa-lightbulb me-1"></i>生成知识卡片
-            </a>
-            <a href="{% url 'solve_problem' %}" class="btn" style="background-color: #4e6ef2; color: white;">
-                <i class="fas fa-plus me-1"></i>解答新题目
-            </a>
-        </div>
-    </div>
-    
+<div class="container mt-4">
+    <!-- 面包屑导航 -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}" class="text-decoration-none">学习历史</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'problem_history' %}" class="text-decoration-none">题目解答历史</a></li>
+            <li class="breadcrumb-item active" aria-current="page">查看题目</li>
+        </ol>
+    </nav>
+
     <!-- 题目信息卡片 -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header" style="background-color: #4e6ef2; color: white;">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-question-circle me-2"></i>
-                <h5 class="mb-0">{% if problem.problem_type == 'TEXT' %}文本题目{% else %}图片题目{% endif %}</h5>
-            </div>
-        </div>
-        <div class="card-body">
-            <h5 class="border-bottom pb-2 mb-3">题目内容：</h5>
-            {% if problem.problem_type == 'TEXT' %}
-                <div class="problem-content p-3 rounded">
-                    {{ problem.problem_content }}
-                </div>
-            {% else %}
-                <div class="text-center mb-3">
-                    <img src="{{ problem.problem_image.url }}" alt="题目图片" class="img-fluid rounded border" style="max-height: 400px;">
-                </div>
-            {% endif %}
-            <div class="d-flex justify-content-between align-items-center mt-3">
-                <small class="text-muted">提交时间: {{ problem.created_at|date:"Y-m-d H:i:s" }}</small>
-                <span class="badge {% if problem.is_correct %}bg-success{% else %}bg-danger{% endif %} p-2">
-                    {% if problem.is_correct %}
-                        <i class="fas fa-check me-1"></i>回答正确
+        <div class="card-header text-white" style="background-color: #4e6ef2;">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    {% if problem.problem_type == 'TEXT' %}
+                    <i class="fas fa-file-alt me-2"></i>文本题目
                     {% else %}
-                        <i class="fas fa-times me-1"></i>回答错误
+                    <i class="fas fa-image me-2"></i>图片题目
                     {% endif %}
-                </span>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 用户答案 -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-header" style="background-color: #6c757d; color: white;">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-pencil-alt me-2"></i>
-                <h5 class="mb-0">我的答案</h5>
+                </h4>
+                <small class="text-white">{{ problem.created_at|date:"Y-m-d H:i" }}</small>
             </div>
         </div>
         <div class="card-body">
-            {% if problem.user_answer %}
-                <div class="solution-content">
-                    {% with lines=problem.user_answer|split_lines %}
-                        {% for line in lines %}
-                            {% if line|startswith:"## " %}
-                                <div class="section-title">{{ line|slice:"3:" }}</div>
-                            {% elif line|startswith:"# " %}
-                                <div class="section-title">{{ line|slice:"2:" }}</div>
-                            {% elif line|matches:"^\d+\.\s.*" %}
-                                <div class="solution-list-item">
-                                    <span class="solution-list-number">{{ line|get_number }}.</span>
-                                    <div class="solution-list-content">{{ line|strip_number }}</div>
-                                </div>
-                            {% else %}
-                                <p>{{ line }}</p>
-                            {% endif %}
-                        {% endfor %}
-                    {% endwith %}
-                </div>
-            {% else %}
-                <p class="text-muted fst-italic">未提供解答</p>
-            {% endif %}
-        </div>
-    </div>
-    
-    <!-- 标准解答 -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-header" style="background-color: #4e6ef2; color: white;">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-check-circle me-2"></i>
-                <h5 class="mb-0">标准解答</h5>
-            </div>
-        </div>
-        <div class="card-body">
-            {% if problem.solution %}
-                <div class="solution-content">
-                    {% with lines=problem.solution|split_lines %}
-                        {% for line in lines %}
-                            {% if line|startswith:"## " %}
-                                <div class="section-title">{{ line|slice:"3:" }}</div>
-                            {% elif line|startswith:"# " %}
-                                <div class="section-title">{{ line|slice:"2:" }}</div>
-                            {% elif line|matches:"^\d+\.\s.*" %}
-                                <div class="solution-list-item">
-                                    <span class="solution-list-number">{{ line|get_number }}.</span>
-                                    <div class="solution-list-content">{{ line|strip_number }}</div>
-                                </div>
-                            {% else %}
-                                <p>{{ line }}</p>
-                            {% endif %}
-                        {% endfor %}
-                    {% endwith %}
-                </div>
-            {% else %}
-                <p class="text-muted fst-italic">暂无标准解答</p>
-            {% endif %}
-        </div>
-    </div>
-    
-    <!-- 解析补充说明 -->
-    {% if problem.explanation %}
-    <div class="card shadow-sm mb-4">
-        <div class="card-header" style="background-color: #fd7e14; color: white;">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-comment-dots me-2"></i>
-                <h5 class="mb-0">解析补充</h5>
-            </div>
-        </div>
-        <div class="card-body">
-            <div class="solution-content">
-                {% with lines=problem.explanation|split_lines %}
-                    {% for line in lines %}
-                        {% if line|startswith:"## " %}
-                            <div class="section-title">{{ line|slice:"3:" }}</div>
-                        {% elif line|startswith:"# " %}
-                            <div class="section-title">{{ line|slice:"2:" }}</div>
-                        {% elif line|matches:"^\d+\.\s.*" %}
-                            <div class="solution-list-item">
-                                <span class="solution-list-number">{{ line|get_number }}.</span>
-                                <div class="solution-list-content">{{ line|strip_number }}</div>
-                            </div>
-                        {% else %}
-                            <p>{{ line }}</p>
+            <h5 class="card-title mb-3">题目内容：</h5>
+            <div class="bg-light p-3 rounded mb-4">
+                {% if problem.problem_type == 'TEXT' %}
+                    <div class="markdown-content">{{ problem.text_content|safe }}</div>
+                {% else %}
+                    <div class="text-center">
+                        <img src="{{ problem.image.url }}" alt="题目图片" class="img-fluid rounded mb-3" style="max-height: 400px;">
+                        {% if problem.text_content %}
+                        <div class="markdown-content mt-3">{{ problem.text_content|safe }}</div>
                         {% endif %}
-                    {% endfor %}
-                {% endwith %}
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
-    {% endif %}
-    
-    <!-- 相关知识卡片 -->
-    {% if related_cards %}
+
+    <!-- 解答结果卡片 -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header" style="background-color: #4e6ef2; color: white;">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-lightbulb me-2"></i>
-                <h5 class="mb-0">相关知识卡片</h5>
-            </div>
+        <div class="card-header text-white" style="background-color: #4e6ef2;">
+            <h4 class="mb-0"><i class="fas fa-lightbulb me-2"></i>解答结果</h4>
         </div>
         <div class="card-body">
-            <div class="row">
-                {% for card in related_cards %}
-                <div class="col-md-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ card.title }}</h5>
-                            <p class="card-text">{{ card.content|truncatechars:100 }}</p>
-                        </div>
-                        <div class="card-footer bg-transparent">
-                            <a href="{% url 'view_knowledge_card' card.id %}" class="btn btn-sm" style="background-color: #4e6ef2; color: white;">
-                                <i class="fas fa-eye me-1"></i>查看详情
-                            </a>
-                        </div>
-                    </div>
+            <!-- 题目理解 -->
+            <div class="answer-section mb-4">
+                <h5 class="section-title">
+                    <i class="fas fa-book me-2"></i>题目理解
+                </h5>
+                <div class="bg-light p-3 rounded markdown-content">
+                    {% with section=problem.solution|extract_section:"题目理解" %}
+                        {% if section %}
+                            {{ section|safe }}
+                        {% else %}
+                            <p class="text-muted fst-italic">无题目理解内容</p>
+                        {% endif %}
+                    {% endwith %}
                 </div>
-                {% endfor %}
+            </div>
+            
+            <!-- 解题思路 -->
+            <div class="answer-section mb-4">
+                <h5 class="section-title">
+                    <i class="fas fa-lightbulb me-2"></i>解题思路
+                </h5>
+                <div class="bg-light p-3 rounded markdown-content">
+                    {% with section=problem.solution|extract_section:"解题思路" %}
+                        {% if section %}
+                            {{ section|safe }}
+                        {% else %}
+                            <p class="text-muted fst-italic">无解题思路内容</p>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            
+            <!-- 解题过程 -->
+            <div class="answer-section mb-4">
+                <h5 class="section-title">
+                    <i class="fas fa-tasks me-2"></i>解题过程
+                </h5>
+                <div class="bg-light p-3 rounded markdown-content">
+                    {% with section=problem.solution|extract_section:"解题过程" %}
+                        {% if section %}
+                            {{ section|safe }}
+                        {% else %}
+                            <p class="text-muted fst-italic">无解题过程内容</p>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            
+            <!-- 最终答案 -->
+            <div class="answer-section mb-4">
+                <h5 class="section-title">
+                    <i class="fas fa-check-circle me-2"></i>最终答案
+                </h5>
+                <div class="bg-light p-3 rounded markdown-content">
+                    {% with section=problem.solution|extract_section:"最终答案" %}
+                        {% if section %}
+                            {{ section|safe }}
+                        {% else %}
+                            <p class="text-muted fst-italic">无最终答案内容</p>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            
+            <!-- 知识点总结 -->
+            <div class="answer-section">
+                <h5 class="section-title">
+                    <i class="fas fa-bookmark me-2"></i>知识点总结
+                </h5>
+                <div class="bg-light p-3 rounded markdown-content">
+                    {% with section=problem.solution|extract_section:"知识点总结" %}
+                        {% if section %}
+                            {{ section|safe }}
+                        {% else %}
+                            <p class="text-muted fst-italic">无知识点总结内容</p>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            
+            <!-- 调试信息 -->
+            {% if debug %}
+            <div class="debug-info mt-4">
+                <h5>调试信息</h5>
+                <strong>提取的章节:</strong>
+                <ul>
+                    {% for section in problem.solution|detect_sections %}
+                    <li>{{ section }}</li>
+                    {% empty %}
+                    <li>未找到章节标题</li>
+                    {% endfor %}
+                </ul>
+                <strong>原始解答内容:</strong>
+                <pre>{{ problem.solution }}</pre>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- 用户答案卡片 (如果有) -->
+    {% if problem.user_answer %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header text-white" style="background-color: #4e6ef2;">
+            <h4 class="mb-0"><i class="fas fa-user-edit me-2"></i>您的答案</h4>
+        </div>
+        <div class="card-body">
+            <div class="bg-light p-3 rounded markdown-content">
+                {{ problem.user_answer|safe }}
+            </div>
+            
+            <!-- 准确性评估 -->
+            <div class="mt-4">
+                <h5 class="section-title">准确性评估</h5>
+                <div class="d-flex align-items-center">
+                    {% if problem.is_correct %}
+                    <span class="badge bg-success px-3 py-2 me-2"><i class="fas fa-check me-1"></i>正确</span>
+                    {% else %}
+                    <span class="badge bg-danger px-3 py-2 me-2"><i class="fas fa-times me-1"></i>不正确</span>
+                    {% endif %}
+                    <p class="mb-0 ms-2">{{ problem.feedback }}</p>
+                </div>
             </div>
         </div>
     </div>
     {% endif %}
     
-    <!-- 推荐学习资源 -->
-    {% if recommended_resources %}
-    <div class="card shadow-sm">
-        <div class="card-header" style="background-color: #4e6ef2; color: white;">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-book me-2"></i>
-                <h5 class="mb-0">推荐学习资源</h5>
-            </div>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                {% for resource in recommended_resources %}
-                <div class="col-md-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ resource.title }}</h5>
-                            <p class="card-text">{{ resource.description|truncatechars:100 }}</p>
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="badge {% if resource.resource_type == 'VIDEO' %}bg-danger{% elif resource.resource_type == 'ARTICLE' %}bg-info{% elif resource.resource_type == 'QUIZ' %}bg-warning{% else %}bg-secondary{% endif %} me-2">
-                                    {{ resource.get_resource_type_display }}
-                                </span>
-                                {% if resource.avg_rating %}
-                                <span class="text-warning">
-                                    <i class="fas fa-star"></i>
-                                    {{ resource.avg_rating|floatformat:1 }}
-                                </span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="card-footer bg-transparent">
-                            <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm" style="background-color: #4e6ef2; color: white;">
-                                <i class="fas fa-eye me-1"></i>查看详情
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+    <!-- 底部操作按钮 -->
+    <div class="d-flex justify-content-between mb-5">
+        <a href="{% url 'problem_history' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>返回列表
+        </a>
+        <div>
+            <a href="{% url 'create_knowledge_card' %}?problem_id={{ problem.id }}&generate=true" class="btn btn-success">
+                <i class="fas fa-lightbulb me-1"></i>生成知识卡片
+            </a>
         </div>
     </div>
-    {% endif %}
 </div>
 {% endblock %} 

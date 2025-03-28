@@ -66,7 +66,9 @@
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-question-circle me-2 text-primary"></i>最近解答的题目</h5>
-                        <a href="{% url 'problem_history' %}" class="btn btn-sm btn-outline-primary">查看更多</a>
+                        <a href="{% url 'problem_history' %}" class="btn btn-primary btn-sm fw-bold" style="box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+                            查看更多 <i class="fas fa-angle-right ms-1"></i>
+                        </a>
                     </div>
                     <div class="card-body p-0">
                         {% if recent_problems %}
@@ -104,15 +106,17 @@
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-book me-2 text-success"></i>最近批改的作业</h5>
-                        <a href="{% url 'homework_history' %}" class="btn btn-sm btn-outline-success">查看更多</a>
+                        <a href="{% url 'homework_history' %}" class="btn btn-success btn-sm fw-bold" style="box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+                            查看更多 <i class="fas fa-angle-right ms-1"></i>
+                        </a>
                     </div>
                     <div class="card-body p-0">
                         {% if recent_homeworks %}
                             <div class="list-group list-group-flush">
                                 {% for homework in recent_homeworks %}
-                                    <div class="list-group-item">
-                                        <div class="d-flex w-100 justify-content-between">
-                                            <h6 class="mb-1">
+                                    <div class="list-group-item py-2">
+                                        <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                                            <h6 class="mb-0">
                                                 作业 #{{ homework.id }}
                                                 <span class="badge 
                                                     {% if homework.score >= 9 %}bg-success
@@ -126,15 +130,17 @@
                                             </h6>
                                             <small class="text-muted">{{ homework.created_at|date:"m-d H:i" }}</small>
                                         </div>
-                                        <p class="mb-1 small text-muted">{{ homework.correction_results|truncatechars:100 }}</p>
-                                        <a href="{% url 'view_homework' homework.id %}" class="btn btn-sm btn-outline-success mt-1">查看详情</a>
+                                        <p class="mb-1 small text-muted">{{ homework.correction_result|truncatechars:80 }}</p>
+                                        <div class="d-flex justify-content-end">
+                                            <a href="{% url 'view_homework' homework.id %}" class="btn btn-sm btn-outline-success mt-1">查看详情</a>
+                                        </div>
                                     </div>
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <div class="p-4 text-center">
-                                <i class="fas fa-book fa-3x mb-3 text-muted"></i>
-                                <p>您还没有批改过任何作业</p>
+                            <div class="p-3 text-center">
+                                <i class="fas fa-book fa-2x mb-2 text-muted"></i>
+                                <p class="mb-2">您还没有批改过任何作业</p>
                                 <a href="{% url 'correct_homework' %}" class="btn btn-success">开始批改作业</a>
                             </div>
                         {% endif %}
@@ -149,7 +155,9 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-book-reader me-2 text-info"></i>推荐学习资源</h5>
-                        <a href="{% url 'learning_resources' %}" class="btn btn-sm btn-outline-info">浏览更多资源</a>
+                        <a href="{% url 'learning_resources' %}" class="btn btn-info btn-sm fw-bold" style="box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+                            浏览更多资源 <i class="fas fa-angle-right ms-1"></i>
+                        </a>
                     </div>
                     <div class="card-body p-0">
                         {% if recommended_resources %}

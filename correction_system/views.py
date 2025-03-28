@@ -483,53 +483,45 @@ def homework_history(request):
 
 @login_required
 def view_problem(request, problem_id):
-    """查看单个题目详情"""
-    problem = get_object_or_404(Problem, id=problem_id, user=request.user)
+    """
+    显示题目详情页面
+    """
+    try:
+        problem = Problem.objects.get(id=problem_id, user=request.user)
+    except Problem.DoesNotExist:
+        messages.error(request, "题目不存在或您无权查看")
+        return redirect('problem_history')
     
-    # 获取相关知识卡片
+    # 检查是否有关联的知识卡片
     related_cards = KnowledgeCard.objects.filter(problem=problem)
     
-    # 获取推荐学习资源（不依赖problem.tags，改为获取随机资源）
-    recommended_resources = LearningResource.objects.all().order_by('?')[:3]
-    
+    # 准备上下文数据
     context = {
         'problem': problem,
         'related_cards': related_cards,
-        'recommended_resources': recommended_resources
     }
-    return render(request, 'correction_system/history/view_problem.html', context)
+    
+    # 渲染详情页面
+    return render(request, 'correction_system/problems/view_problem.html', context)
 
 @login_required
 def view_homework(request, homework_id):
-    """查看单个作业详情"""
-    homework = get_object_or_404(Homework, id=homework_id, user=request.user)
+    """
+    显示作业批改详情页面
+    """
+    try:
+        homework = Homework.objects.get(id=homework_id, user=request.user)
+    except Homework.DoesNotExist:
+        messages.error(request, "作业不存在或您无权查看")
+        return redirect('homework_history')
     
-    # 解析优点和缺点 - 检查属性是否存在
-    strengths = []
-    weaknesses = []
-    
-    # 安全地获取strengths属性
-    if hasattr(homework, 'strengths') and homework.strengths:
-        strengths = homework.strengths.split(';')
-    
-    # 安全地获取weaknesses属性
-    if hasattr(homework, 'weaknesses') and homework.weaknesses:
-        weaknesses = homework.weaknesses.split(';')
-    
-    # 获取相关知识卡片
-    related_cards = KnowledgeCard.objects.filter(homework=homework)
-    
-    # 获取推荐学习资源（改为随机获取）
-    recommended_resources = LearningResource.objects.all().order_by('?')[:3]
-    
+    # 准备需要传递给模板的上下文数据
     context = {
         'homework': homework,
-        'strengths': strengths,
-        'weaknesses': weaknesses,
-        'related_cards': related_cards,
-        'recommended_resources': recommended_resources
+        'debug': settings.DEBUG,
     }
-    return render(request, 'correction_system/history/view_homework.html', context)
+    
+    return render(request, 'correction_system/homeworks/view_homework.html', context)
 
 # 知识卡片相关视图
 @login_required
@@ -1096,3 +1088,40 @@ def problem_list(request):
         'selected_status': status,
     }
     return render(request, 'correction_system/problems/problem_list.html', context)
+
+def reload_static(request):
+    """
+    用于清除Django模板缓存的视图
+    仅在DEBUG模式下可用
+    """
+    if not settings.DEBUG:
+        return HttpResponseForbidden("仅在调试模式下可用")
+    
+    from django.template.loader import get_template
+    from django.template import engines
+    
+    # 清除Django模板缓存
+    for engine in engines.all():
+        if hasattr(engine, 'template_loaders'):
+            for loader in engine.template_loaders:
+                if hasattr(loader, 'reset'):
+                    loader.reset()
+                elif hasattr(loader, 'loaders'):
+                    for subloader in loader.loaders:
+                        if hasattr(subloader, 'reset'):
+                            subloader.reset()
+    
+    # 确保导入settings
+    from django.conf import settings
+    
+    # 强制从文件系统重新加载模板
+    template_name = request.GET.get('template', 'correction_system/problems/view_problem.html')
+    try:
+        template = get_template(template_name)
+        messages.success(request, f"成功重新加载模板: {template_name}")
+    except Exception as e:
+        messages.error(request, f"加载模板失败: {str(e)}")
+    
+    # 重定向回之前的页面
+    redirect_to = request.GET.get('next', 'dashboard')
+    return redirect(redirect_to)

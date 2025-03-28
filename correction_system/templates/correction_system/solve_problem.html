@@ -1,6 +1,100 @@
 {% extends 'correction_system/base.html' %}
+{% load custom_filters %}
 
 {% block title %}题目解答 - 智学导师{% endblock %}
+
+{% block extra_head %}
+<style>
+/* 统一样式定义 */
+.section-title {
+    color: #4e6ef2;
+    border-bottom: 2px solid #4e6ef2;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+
+.markdown-content {
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.markdown-content h1, 
+.markdown-content h2, 
+.markdown-content h3, 
+.markdown-content h4 {
+    color: #4e6ef2;
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+.markdown-content ul, 
+.markdown-content ol {
+    padding-left: 20px;
+    margin-bottom: 16px;
+}
+
+.markdown-content p {
+    margin-bottom: 16px;
+}
+
+.markdown-content pre, 
+.markdown-content code {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.markdown-content code {
+    padding: 2px 4px;
+    color: #4e6ef2;
+}
+
+.markdown-content blockquote {
+    padding-left: 16px;
+    margin-left: 0;
+    border-left: 4px solid #4e6ef2;
+    color: #6c757d;
+}
+
+/* 卡片阴影效果 */
+.card {
+    border-radius: 8px;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* 按钮统一样式 */
+.btn-primary, .btn-success {
+    background-color: #4e6ef2;
+    border-color: #4e6ef2;
+}
+
+.btn-primary:hover, .btn-success:hover {
+    background-color: #3d5ad8;
+    border-color: #3d5ad8;
+}
+
+.btn-outline-primary {
+    color: #4e6ef2;
+    border-color: #4e6ef2;
+}
+
+.btn-outline-primary:hover {
+    background-color: #4e6ef2;
+    border-color: #4e6ef2;
+    color: white;
+}
+
+.answer-section {
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container animation-fade-in">
@@ -88,32 +182,113 @@
             
             <!-- 解答结果 -->
             {% if solution %}
-            <div class="card" id="resultCard">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>解答结果</h5>
+            <div class="card shadow-sm" id="resultCard">
+                <div class="card-header text-white" style="background-color: #4e6ef2;">
+                    <h4 class="mb-0"><i class="fas fa-lightbulb me-2"></i>解答结果</h4>
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
                         <div class="d-flex justify-content-between mb-2">
-                            <h6 class="fw-bold">题目内容：</h6>
-                            <span class="badge bg-primary">{{ form.problem_type }}</span>
+                            <h5 class="card-title">题目内容：</h5>
+                            <span class="badge bg-primary">
+                                {% if form.problem_type == 'TEXT' %}
+                                    文本题目
+                                {% else %}
+                                    图片题目
+                                {% endif %}
+                            </span>
                         </div>
-                        {% if form.problem_type == 'TEXT' %}
-                            <p>{{ form.text_content }}</p>
-                        {% else %}
-                            <div class="text-center mb-3">
-                                <img src="{{ form.image.url }}" alt="题目图片" class="img-fluid rounded" style="max-height: 300px;">
-                            </div>
-                            {% if form.text_content %}
+                        <div class="bg-light p-3 rounded mb-4">
+                            {% if form.problem_type == 'TEXT' %}
                                 <p>{{ form.text_content }}</p>
+                            {% else %}
+                                <div class="text-center mb-3">
+                                    <img src="{{ form.image.url }}" alt="题目图片" class="img-fluid rounded" style="max-height: 300px;">
+                                </div>
+                                {% if form.text_content %}
+                                    <p>{{ form.text_content }}</p>
+                                {% endif %}
                             {% endif %}
-                        {% endif %}
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <h6 class="fw-bold">解答过程：</h6>
-                        <div class="bg-light p-3 rounded" id="solutionContent">
-                            {{ solution|linebreaks }}
+                    <!-- 题目理解 -->
+                    <div class="answer-section mb-4">
+                        <h5 class="section-title">
+                            <i class="fas fa-book me-2"></i>题目理解
+                        </h5>
+                        <div class="bg-light p-3 rounded markdown-content">
+                            {% with section=solution|extract_section:"题目理解" %}
+                                {% if section %}
+                                    {{ section|safe }}
+                                {% else %}
+                                    <p class="text-muted fst-italic">无题目理解内容</p>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    
+                    <!-- 解题思路 -->
+                    <div class="answer-section mb-4">
+                        <h5 class="section-title">
+                            <i class="fas fa-lightbulb me-2"></i>解题思路
+                        </h5>
+                        <div class="bg-light p-3 rounded markdown-content">
+                            {% with section=solution|extract_section:"解题思路" %}
+                                {% if section %}
+                                    {{ section|safe }}
+                                {% else %}
+                                    <p class="text-muted fst-italic">无解题思路内容</p>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    
+                    <!-- 解题过程 -->
+                    <div class="answer-section mb-4">
+                        <h5 class="section-title">
+                            <i class="fas fa-tasks me-2"></i>解题过程
+                        </h5>
+                        <div class="bg-light p-3 rounded markdown-content">
+                            {% with section=solution|extract_section:"解题过程" %}
+                                {% if section %}
+                                    {{ section|safe }}
+                                {% else %}
+                                    <p class="text-muted fst-italic">无解题过程内容</p>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    
+                    <!-- 最终答案 -->
+                    <div class="answer-section mb-4">
+                        <h5 class="section-title">
+                            <i class="fas fa-check-circle me-2"></i>最终答案
+                        </h5>
+                        <div class="bg-light p-3 rounded markdown-content">
+                            {% with section=solution|extract_section:"最终答案" %}
+                                {% if section %}
+                                    {{ section|safe }}
+                                {% else %}
+                                    <p class="text-muted fst-italic">无最终答案内容</p>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    
+                    <!-- 知识点总结 -->
+                    <div class="answer-section mb-4">
+                        <h5 class="section-title">
+                            <i class="fas fa-bookmark me-2"></i>知识点总结
+                        </h5>
+                        <div class="bg-light p-3 rounded markdown-content">
+                            {% with section=solution|extract_section:"知识点总结" %}
+                                {% if section %}
+                                    {{ section|safe }}
+                                {% else %}
+                                    <p class="text-muted fst-italic">无知识点总结内容</p>
+                                {% endif %}
+                            {% endwith %}
                         </div>
                     </div>
                     
@@ -126,9 +301,6 @@
                         <div>
                             <a href="{% url 'create_knowledge_card' %}?problem_id={{ problem.id }}&generate=true" class="btn btn-outline-warning">
                                 <i class="fas fa-lightbulb me-1"></i>生成知识卡片
-                            </a>
-                            <a href="{% url 'recommend_resources' %}?problem_id={{ problem.id }}" class="btn btn-outline-info">
-                                <i class="fas fa-book me-1"></i>推荐学习资源
                             </a>
                         </div>
                         {% endif %}
@@ -160,8 +332,16 @@
         const copySolutionBtn = document.getElementById('copySolutionBtn');
         if (copySolutionBtn) {
             copySolutionBtn.addEventListener('click', function() {
-                const solutionContent = document.getElementById('solutionContent').innerText;
-                navigator.clipboard.writeText(solutionContent).then(function() {
+                const solutionSections = document.querySelectorAll('.answer-section .markdown-content');
+                let fullSolution = '';
+                
+                solutionSections.forEach(function(section) {
+                    if (!section.querySelector('.text-muted.fst-italic')) {
+                        fullSolution += section.innerText + '\n\n';
+                    }
+                });
+                
+                navigator.clipboard.writeText(fullSolution.trim()).then(function() {
                     // 显示成功消息
                     copySolutionBtn.innerHTML = '<i class="fas fa-check me-1"></i>已复制';
                     copySolutionBtn.classList.remove('btn-outline-primary');

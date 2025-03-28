@@ -42,8 +42,8 @@
                             </div>
                             <div class="col-md-8">
                                 <div class="mb-3">
-                                    <label for="{{ form.avatar.id_for_label }}" class="form-label">上传头像</label>
-                                    {{ form.avatar }}
+                                    <label for="id_avatar" class="form-label">上传头像</label>
+                                    <input type="file" name="avatar" id="id_avatar" class="form-control">
                                     {% if form.avatar.errors %}
                                         <div class="text-danger">
                                             {% for error in form.avatar.errors %}
@@ -58,8 +58,8 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="{{ form.school.id_for_label }}" class="form-label">学校</label>
-                        {{ form.school }}
+                        <label for="id_school" class="form-label">学校</label>
+                        <input type="text" name="school" id="id_school" class="form-control" value="{{ user.profile.school|default:'' }}">
                         {% if form.school.errors %}
                             <div class="text-danger">
                                 {% for error in form.school.errors %}
@@ -70,8 +70,16 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="{{ form.grade.id_for_label }}" class="form-label">年级</label>
-                        {{ form.grade }}
+                        <label for="id_grade" class="form-label">年级</label>
+                        <select name="grade" id="id_grade" class="form-select">
+                            <option value="">请选择年级</option>
+                            <option value="初一" {% if user.profile.grade == "初一" %}selected{% endif %}>初一</option>
+                            <option value="初二" {% if user.profile.grade == "初二" %}selected{% endif %}>初二</option>
+                            <option value="初三" {% if user.profile.grade == "初三" %}selected{% endif %}>初三</option>
+                            <option value="高一" {% if user.profile.grade == "高一" %}selected{% endif %}>高一</option>
+                            <option value="高二" {% if user.profile.grade == "高二" %}selected{% endif %}>高二</option>
+                            <option value="高三" {% if user.profile.grade == "高三" %}selected{% endif %}>高三</option>
+                        </select>
                         {% if form.grade.errors %}
                             <div class="text-danger">
                                 {% for error in form.grade.errors %}
@@ -82,8 +90,8 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="{{ form.subjects_of_interest.id_for_label }}" class="form-label">感兴趣的科目</label>
-                        {{ form.subjects_of_interest }}
+                        <label for="id_subjects_of_interest" class="form-label">感兴趣的科目</label>
+                        <input type="text" name="subjects_of_interest" id="id_subjects_of_interest" class="form-control" value="{{ user.profile.subjects_of_interest|default:'' }}">
                         {% if form.subjects_of_interest.errors %}
                             <div class="text-danger">
                                 {% for error in form.subjects_of_interest.errors %}
@@ -95,8 +103,8 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="{{ form.bio.id_for_label }}" class="form-label">个人简介</label>
-                        {{ form.bio }}
+                        <label for="id_bio" class="form-label">个人简介</label>
+                        <textarea name="bio" id="id_bio" class="form-control" rows="3">{{ user.profile.bio|default:'' }}</textarea>
                         {% if form.bio.errors %}
                             <div class="text-danger">
                                 {% for error in form.bio.errors %}
@@ -119,8 +127,8 @@
         </div>
         
         <div class="card mb-4">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fas fa-key me-2 text-warning"></i>账号信息</h5>
+            <div class="card-header" style="background-color: #ffc107; color: #212529;">
+                <h5 class="mb-0"><i class="fas fa-key me-2"></i>账号信息</h5>
             </div>
             <div class="card-body">
                 <div class="row mb-3">
@@ -131,9 +139,9 @@
                     <div class="col-md-3 text-muted">电子邮箱：</div>
                     <div class="col-md-9">{{ user.email }}</div>
                 </div>
-                <div class="d-grid">
-                    <a href="{% url 'password_change' %}" class="btn btn-outline-warning">
-                        <i class="fas fa-key me-1"></i>修改密码
+                <div class="d-flex justify-content-center mt-4">
+                    <a href="{% url 'password_change' %}" class="btn btn-warning" style="box-shadow: 0 2px 5px rgba(0,0,0,0.15); padding: 10px 20px; border-radius: 6px;">
+                        <i class="fas fa-key me-2"></i>修改密码
                     </a>
                 </div>
             </div>

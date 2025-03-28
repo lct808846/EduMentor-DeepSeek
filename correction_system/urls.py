@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from django.conf import settings
 
 urlpatterns = [
     # 用户认证相关URL
@@ -40,4 +41,12 @@ urlpatterns = [
     # 题目和作业处理
     path('solve/', views.solve_problem, name='solve_problem'),
     path('correct/', views.correct_homework, name='correct_homework'),
-] 
+]
+
+# 添加调试路径
+if settings.DEBUG:
+    urlpatterns += [
+        path('reload-static/', views.reload_static, name='reload_static'),
+    ]
+
+urlpatterns = tuple(urlpatterns) 
