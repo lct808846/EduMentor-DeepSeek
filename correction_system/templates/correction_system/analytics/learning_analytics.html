@@ -1,0 +1,578 @@
+{% extends 'correction_system/base.html' %}
+{% load static %}
+
+{% block title %}学习分析 | 智学导师{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        width: 100%;
+        height: 400px;
+        margin-bottom: 30px;
+    }
+    
+    .score-card {
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        background: #fff;
+        transition: transform 0.3s ease;
+    }
+    
+    .score-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .score-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+    
+    .score-label {
+        color: #7f8c8d;
+        font-size: 1rem;
+        margin-top: 5px;
+    }
+    
+    .analysis-item {
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .analysis-item:last-child {
+        border-bottom: none;
+    }
+    
+    .recommendation-list {
+        padding-left: 20px;
+    }
+    
+    .recommendation-list li {
+        margin-bottom: 8px;
+    }
+    
+    .learning-style-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        background-color: #3498db;
+        color: white;
+        font-weight: bold;
+        margin-top: 10px;
+    }
+    
+    /* 学习风格颜色 */
+    .style-0 { background-color: #3498db; } /* 系统性学习者 */
+    .style-1 { background-color: #e74c3c; } /* 突击型学习者 */
+    .style-2 { background-color: #2ecc71; } /* 深度专注型 */
+    .style-3 { background-color: #f39c12; } /* 探索型学习者 */
+    
+    .calendar-container {
+        height: 300px;
+        overflow: hidden;
+    }
+    
+    .empty-chart-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 300px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px dashed #dee2e6;
+    }
+    
+    .empty-chart-icon {
+        font-size: 48px;
+        color: #adb5bd;
+        margin-bottom: 16px;
+    }
+    
+    .empty-chart-text {
+        color: #6c757d;
+        text-align: center;
+        max-width: 80%;
+    }
+    
+    .new-user-banner {
+        background-color: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 16px;
+        margin-bottom: 24px;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    {% if debug_mode %}
+    <div class="alert alert-info" role="alert">
+        <strong>调试模式</strong> - 正在显示模拟数据用于开发测试。
+    </div>
+    {% endif %}
+
+    <h1 class="mb-4 text-center">学习分析报告</h1>
+    
+    {% if is_new_user %}
+    <div class="new-user-banner">
+        <h4><i class="fas fa-info-circle"></i> 欢迎使用学习分析功能</h4>
+        <p>您是新用户，目前还没有学习数据。开始解题或提交作业后，我们将为您生成个性化的学习分析报告。</p>
+        <p>您可以：</p>
+        <ul>
+            <li>在<a href="{% url 'solve_problem' %}">解题区</a>解答问题</li>
+            <li>在<a href="{% url 'correct_homework' %}">作业批改</a>提交作业</li>
+            <li>创建<a href="{% url 'knowledge_cards' %}">知识卡片</a>记录学习重点</li>
+        </ul>
+    </div>
+    {% endif %}
+    
+    <!-- 基本统计信息 -->
+    <div class="row mb-5">
+        <div class="col-md-3">
+            <div class="score-card text-center">
+                <div class="score-value">{{ stats.problem_count }}</div>
+                <div class="score-label">已解决题目</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="score-card text-center">
+                <div class="score-value">{{ stats.homework_count }}</div>
+                <div class="score-label">已批改作业</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="score-card text-center">
+                <div class="score-value">{{ stats.correct_rate }}%</div>
+                <div class="score-label">题目正确率</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="score-card text-center">
+                <div class="score-value">{{ stats.avg_score }}</div>
+                <div class="score-label">平均分数</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 学习风格 & 能力分析 -->
+    <div class="row mb-5">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">学习风格分析</h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <div class="learning-style-badge style-{{ user_style_index }}">
+                            {{ analysis.learning_style }}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-4 text-center">
+                            <h5>规律性</h5>
+                            <div class="h2">{{ analysis.consistency_score }}</div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h5>参与度</h5>
+                            <div class="h2">{{ analysis.engagement_score }}</div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h5>进步性</h5>
+                            <div class="h2">{{ analysis.improvement_score }}</div>
+                        </div>
+                    </div>
+                    
+                    {% if is_new_user %}
+                    <div class="empty-chart-container">
+                        <div class="empty-chart-icon">
+                            <i class="fas fa-chart-scatter"></i>
+                        </div>
+                        <div class="empty-chart-text">
+                            <h5>暂无学习风格数据</h5>
+                            <p>随着您使用系统解题和提交作业，我们将分析您的学习风格并在此显示。</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div id="learning_style_chart" class="chart-container"></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">学科能力分析</h4>
+                </div>
+                <div class="card-body">
+                    <div class="analysis-item">
+                        <h5>优势学科</h5>
+                        <p>
+                            {% for subject in analysis.strength_subjects %}
+                                <span class="badge bg-success">{{ subject }}</span>
+                            {% endfor %}
+                        </p>
+                    </div>
+                    <div class="analysis-item">
+                        <h5>待提高学科</h5>
+                        <p>
+                            {% for subject in analysis.weakness_subjects %}
+                                <span class="badge bg-warning">{{ subject }}</span>
+                            {% endfor %}
+                        </p>
+                    </div>
+                    
+                    {% if is_new_user %}
+                    <div class="empty-chart-container">
+                        <div class="empty-chart-icon">
+                            <i class="fas fa-chart-radar"></i>
+                        </div>
+                        <div class="empty-chart-text">
+                            <h5>暂无学科能力数据</h5>
+                            <p>随着您解决不同学科的问题，我们将分析您的能力特点并在此显示。</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div id="subject_radar_chart" class="chart-container"></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 分数趋势 & 学习活动 -->
+    <div class="row mb-5">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">分数走势分析</h4>
+                </div>
+                <div class="card-body">
+                    {% if is_new_user %}
+                    <div class="empty-chart-container">
+                        <div class="empty-chart-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="empty-chart-text">
+                            <h5>暂无分数数据</h5>
+                            <p>提交作业批改后，您的分数趋势将在此显示，并预测未来表现。</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div id="score_trend_chart" class="chart-container"></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h4 class="mb-0">学习活动热力图</h4>
+                </div>
+                <div class="card-body">
+                    {% if is_new_user %}
+                    <div class="empty-chart-container">
+                        <div class="empty-chart-icon">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="empty-chart-text">
+                            <h5>暂无学习活动</h5>
+                            <p>使用系统后，您的学习活动记录将在此显示为热力图。</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div id="activity_calendar" class="calendar-container"></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 改进建议 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h4 class="mb-0">学习建议</h4>
+                </div>
+                <div class="card-body">
+                    <ul class="recommendation-list">
+                        {% for recommendation in analysis.recommendations %}
+                            <li>{{ recommendation }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 引入ECharts -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+<script>
+    // 确保DOM加载完成后执行
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("初始化图表...");
+        
+        // 检查是否是新用户，如果是则不初始化图表
+        var isNewUser = {% if is_new_user %}true{% else %}false{% endif %};
+        
+        if (isNewUser) {
+            console.log("新用户，跳过图表初始化");
+            return;
+        }
+        
+        try {
+            // 学习风格散点图
+            var styleChart = echarts.init(document.getElementById('learning_style_chart'));
+            var styleOption = {
+                tooltip: {
+                    formatter: function(params) {
+                        return params.data[2];
+                    }
+                },
+                xAxis: {
+                    show: false,
+                    min: -2,
+                    max: 2
+                },
+                yAxis: {
+                    show: false,
+                    min: -2,
+                    max: 2
+                },
+                series: [{
+                    type: 'scatter',
+                    symbolSize: 30,
+                    data: {{ learning_styles_scatter|safe }},
+                    itemStyle: {
+                        color: function(params) {
+                            let colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
+                            return colors[params.dataIndex];
+                        }
+                    },
+                    label: {
+                        show: true,
+                        formatter: function(params) {
+                            return params.data[2].split('型')[0];
+                        },
+                        color: '#fff'
+                    }
+                }, {
+                    type: 'effectScatter',
+                    symbolSize: 40,
+                    data: [{{ learning_styles_scatter|safe }}[{{ user_style_index }}]],
+                    itemStyle: {
+                        color: '#8e44ad'
+                    },
+                    label: {
+                        show: true,
+                        formatter: '您',
+                        color: '#fff',
+                        fontSize: 14
+                    },
+                    rippleEffect: {
+                        period: 4,
+                        scale: 2.5
+                    }
+                }]
+            };
+            styleChart.setOption(styleOption);
+        
+            // 学科能力雷达图
+            var radarChart = echarts.init(document.getElementById('subject_radar_chart'));
+            var radarOption = {
+                tooltip: {},
+                legend: {
+                    data: ['您的能力', '平均水平']
+                },
+                radar: {
+                    indicator: {{ subjects_radar|safe }}
+                },
+                series: [{
+                    name: '能力值',
+                    type: 'radar',
+                    data: [
+                        {
+                            value: {{ user_abilities|safe }},
+                            name: '您的能力',
+                            itemStyle: {
+                                color: '#3498db'
+                            },
+                            areaStyle: {
+                                color: 'rgba(52, 152, 219, 0.3)'
+                            }
+                        },
+                        {
+                            value: {{ avg_abilities|safe }},
+                            name: '平均水平',
+                            itemStyle: {
+                                color: '#e74c3c'
+                            },
+                            areaStyle: {
+                                color: 'rgba(231, 76, 60, 0.3)'
+                            }
+                        }
+                    ]
+                }]
+            };
+            radarChart.setOption(radarOption);
+        
+            // 分数走势图
+            var scoreChart = echarts.init(document.getElementById('score_trend_chart'));
+            var scoreDates = {{ dates|safe }};
+            var scoreValues = {{ scores|safe }};
+            var predictionData = {{ prediction_data|safe }};
+            
+            // 确保有数据再绘制
+            if (scoreDates.length > 0) {
+                var futureDates = [];
+                var lastDate = new Date(scoreDates[scoreDates.length - 1]);
+                
+                for (var i = 1; i <= predictionData.length - 1; i++) {
+                    var nextDate = new Date(lastDate);
+                    nextDate.setDate(nextDate.getDate() + 7 * i);
+                    futureDates.push(nextDate.toISOString().split('T')[0]);
+                }
+                
+                var scoreOption = {
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'cross'
+                        }
+                    },
+                    legend: {
+                        data: ['历史分数', '预测趋势']
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: scoreDates.concat(futureDates),
+                        axisLabel: {
+                            rotate: 45
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        min: 50,
+                        max: 100
+                    },
+                    series: [
+                        {
+                            name: '历史分数',
+                            type: 'line',
+                            data: scoreValues,
+                            smooth: true,
+                            symbol: 'circle',
+                            symbolSize: 8,
+                            itemStyle: {
+                                color: '#3498db'
+                            }
+                        },
+                        {
+                            name: '预测趋势',
+                            type: 'line',
+                            data: Array(scoreDates.length - 1).fill('-').concat(predictionData),
+                            smooth: true,
+                            symbol: 'circle',
+                            symbolSize: 6,
+                            lineStyle: {
+                                type: 'dashed'
+                            },
+                            itemStyle: {
+                                color: '#9b59b6'
+                            }
+                        }
+                    ]
+                };
+                scoreChart.setOption(scoreOption);
+            } else {
+                // 如果没有数据，显示空状态
+                document.getElementById('score_trend_chart').innerHTML = 
+                    '<div class="empty-chart-container">' +
+                    '<div class="empty-chart-icon"><i class="fas fa-chart-line"></i></div>' +
+                    '<div class="empty-chart-text"><h5>暂无分数数据</h5><p>提交作业批改后，您的分数趋势将在此显示。</p></div>' +
+                    '</div>';
+            }
+        
+            // 学习活动热力图
+            var calendarChart = echarts.init(document.getElementById('activity_calendar'));
+            var calendarRange = "{{ calendar_range }}".split(',');
+            var activityData = {{ activity_data|safe }};
+            
+            // 确保有数据再绘制
+            if (activityData.length > 0) {
+                var calendarOption = {
+                    tooltip: {
+                        formatter: function(params) {
+                            return params.data[0] + ': ' + params.data[1] + '次学习活动';
+                        }
+                    },
+                    visualMap: {
+                        min: 0,
+                        max: 5,
+                        calculable: true,
+                        orient: 'horizontal',
+                        left: 'center',
+                        bottom: 0,
+                        inRange: {
+                            color: ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127']
+                        }
+                    },
+                    calendar: {
+                        range: calendarRange,
+                        cellSize: ['auto', 15],
+                        itemStyle: {
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        },
+                        yearLabel: {show: false},
+                        monthLabel: {
+                            nameMap: 'cn'
+                        },
+                        dayLabel: {
+                            firstDay: 1,
+                            nameMap: 'cn'
+                        }
+                    },
+                    series: {
+                        type: 'heatmap',
+                        coordinateSystem: 'calendar',
+                        data: activityData
+                    }
+                };
+                calendarChart.setOption(calendarOption);
+            } else {
+                // 如果没有数据，显示空状态
+                document.getElementById('activity_calendar').innerHTML = 
+                    '<div class="empty-chart-container">' +
+                    '<div class="empty-chart-icon"><i class="fas fa-calendar-alt"></i></div>' +
+                    '<div class="empty-chart-text"><h5>暂无学习活动</h5><p>使用系统后，您的学习活动记录将在此显示。</p></div>' +
+                    '</div>';
+            }
+        
+            // 窗口大小改变时重绘图表
+            window.addEventListener('resize', function() {
+                if (styleChart && typeof styleChart.resize === 'function') styleChart.resize();
+                if (radarChart && typeof radarChart.resize === 'function') radarChart.resize();
+                if (scoreChart && typeof scoreChart.resize === 'function') scoreChart.resize();
+                if (calendarChart && typeof calendarChart.resize === 'function') calendarChart.resize();
+            });
+            
+            console.log("图表初始化完成");
+            
+        } catch (error) {
+            console.error("图表初始化错误:", error);
+        }
+    });
+</script>
+{% endblock %} 

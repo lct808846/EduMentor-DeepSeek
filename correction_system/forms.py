@@ -95,9 +95,44 @@ class LearningResourceForm(forms.ModelForm):
     """学习资源表单"""
     class Meta:
         model = LearningResource
-        fields = ['title', 'description', 'resource_type', 'url', 'author']
+        fields = [
+            'title', 
+            'description', 
+            'content', 
+            'resource_type', 
+            'image', 
+            'file_url', 
+            'video_url', 
+            'external_url',
+            'tags', 
+            'difficulty_level'
+        ]
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 4}),
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'content': forms.Textarea(attrs={'class': 'form-control rich-editor', 'rows': 10}),
+            'resource_type': forms.Select(attrs={'class': 'form-control'}),
+            'tags': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '用逗号分隔多个标签，例如：数学,公式,高考'}),
+            'difficulty_level': forms.Select(attrs={'class': 'form-control'}),
+            'file_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': '输入文件下载链接'}),
+            'video_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': '输入视频链接'}),
+            'external_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': '输入外部资源链接'}),
+        }
+        labels = {
+            'title': '标题',
+            'description': '描述',
+            'content': '内容',
+            'resource_type': '资源类型',
+            'image': '封面图片',
+            'file_url': '文件链接',
+            'video_url': '视频链接',
+            'external_url': '外部链接',
+            'tags': '标签',
+            'difficulty_level': '难度级别',
+        }
+        help_texts = {
+            'tags': '多个标签请用逗号分隔',
+            'content': '支持HTML格式',
         }
 
 class ResourceSearchForm(forms.Form):
@@ -108,7 +143,7 @@ class ResourceSearchForm(forms.Form):
         widget=forms.TextInput(attrs={'placeholder': '搜索关键词'})
     )
     resource_types = forms.MultipleChoiceField(
-        choices=LearningResource.TYPE_CHOICES,
+        choices=LearningResource.RESOURCE_TYPES,
         required=False,
         widget=forms.CheckboxSelectMultiple
     )

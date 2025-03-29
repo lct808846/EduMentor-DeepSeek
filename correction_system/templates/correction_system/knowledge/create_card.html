@@ -53,6 +53,17 @@
                             <p class="mb-0">{{ problem.solution|linebreaks }}</p>
                         </div>
                     </div>
+                    <div class="mb-4 p-3 border rounded bg-light">
+                        <h5>关联题目</h5>
+                        <p>
+                            {% if problem.problem_type == 'TEXT' %}
+                                {{ problem.text_content|truncatechars:100 }}
+                            {% else %}
+                                <img src="{{ problem.image.url }}" alt="题目图片" style="max-width: 100px; max-height: 100px;">
+                            {% endif %}
+                        </p>
+                        <a href="{% url 'view_problem' problem.id %}" class="btn btn-sm btn-outline-primary" target="_blank">查看题目详情</a>
+                    </div>
                 {% endif %}
                 
                 {% if generated_card %}

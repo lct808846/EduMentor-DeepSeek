@@ -1,282 +1,447 @@
 {% extends 'correction_system/base.html' %}
+{% load static %}
 
-{% block title %}学习资源 - 智学导师{% endblock %}
+{% block title %}学习资源 | 智学导师{% endblock %}
+
+{% block extra_css %}
+<style>
+    .resource-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .resource-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .resource-card .card-header {
+        padding: 0;
+        border-bottom: none;
+    }
+    
+    .resource-header-image {
+        width: 100%;
+        height: 140px;
+        object-fit: cover;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+    }
+    
+    .resource-type-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 0.8rem;
+    }
+    
+    .resource-card .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #2c3e50;
+    }
+    
+    .resource-card .card-text {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+        margin-bottom: 15px;
+    }
+    
+    .resource-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.85rem;
+        color: #95a5a6;
+    }
+    
+    .rating-stars {
+        color: #f1c40f;
+        letter-spacing: -2px;
+    }
+    
+    .filter-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-box .form-control {
+        padding-left: 40px;
+        height: 45px;
+    }
+    
+    .search-box i {
+        position: absolute;
+        left: 15px;
+        top: 15px;
+        color: #95a5a6;
+    }
+    
+    .resource-tag {
+        display: inline-block;
+        background-color: #e9ecef;
+        color: #495057;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        margin-right: 5px;
+        margin-bottom: 5px;
+    }
+    
+    .resource-saved {
+        color: #e74c3c;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        margin-top: 20px;
+    }
+    
+    .empty-state-icon {
+        font-size: 60px;
+        color: #bdc3c7;
+        margin-bottom: 20px;
+    }
+    
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 30px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center animation-fade-in">
-    <div class="col-md-10">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="fs-3"><i class="fas fa-book me-2 text-primary"></i>学习资源库</h2>
-            <div>
-                <a href="{% url 'recommend_resources' %}" class="btn btn-outline-info me-2">
-                    <i class="fas fa-search me-1"></i>资源推荐
-                </a>
-                {% if user.is_staff %}
-                <a href="{% url 'admin:correction_system_learningresource_add' %}" class="btn btn-primary">
-                    <i class="fas fa-plus me-1"></i>添加资源
-                </a>
-                {% endif %}
-            </div>
-        </div>
-        
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>学习资源库</h1>
+        {% if user.is_staff %}
+        <a href="{% url 'create_resource' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> 添加新资源
+        </a>
         {% endif %}
-        
+    </div>
+    
+    <!-- 筛选条件 -->
+    <div class="filter-section">
+        <form method="GET" action="{% url 'learning_resources' %}">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="search-box mb-3">
+                        <i class="fas fa-search"></i>
+                        <input type="text" class="form-control" placeholder="搜索资源..." name="keyword" value="{{ request.GET.keyword|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group mb-3">
+                        <select class="form-control" name="type">
+                            <option value="">所有类型</option>
+                            <option value="VIDEO" {% if 'VIDEO' in selected_types %}selected{% endif %}>视频</option>
+                            <option value="ARTICLE" {% if 'ARTICLE' in selected_types %}selected{% endif %}>文章</option>
+                            <option value="BOOK" {% if 'BOOK' in selected_types %}selected{% endif %}>图书</option>
+                            <option value="EXERCISE" {% if 'EXERCISE' in selected_types %}selected{% endif %}>练习题</option>
+                            <option value="TOOL" {% if 'TOOL' in selected_types %}selected{% endif %}>工具</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group mb-3">
+                        <select class="form-control" name="sort">
+                            <option value="relevance">相关度排序</option>
+                            <option value="latest" {% if request.GET.sort == 'latest' %}selected{% endif %}>最新发布</option>
+                            <option value="rating" {% if request.GET.sort == 'rating' %}selected{% endif %}>评分最高</option>
+                            <option value="popular" {% if request.GET.sort == 'popular' %}selected{% endif %}>最受欢迎</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="math" name="subject" value="数学" {% if '数学' in request.GET.subject %}checked{% endif %}>
+                        <label class="form-check-label" for="math">数学</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="chinese" name="subject" value="语文" {% if '语文' in request.GET.subject %}checked{% endif %}>
+                        <label class="form-check-label" for="chinese">语文</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="english" name="subject" value="英语" {% if '英语' in request.GET.subject %}checked{% endif %}>
+                        <label class="form-check-label" for="english">英语</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="physics" name="subject" value="物理" {% if '物理' in request.GET.subject %}checked{% endif %}>
+                        <label class="form-check-label" for="physics">物理</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="chemistry" name="subject" value="化学" {% if '化学' in request.GET.subject %}checked{% endif %}>
+                        <label class="form-check-label" for="chemistry">化学</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="biology" name="subject" value="生物" {% if '生物' in request.GET.subject %}checked{% endif %}>
+                        <label class="form-check-label" for="biology">生物</label>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-1"></i> 应用筛选
+                    </button>
+                    <a href="{% url 'learning_resources' %}" class="btn btn-outline-secondary ms-2">
+                        <i class="fas fa-redo me-1"></i> 重置
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 我的收藏 -->
+    {% if saved_resources %}
+    <div class="mb-4">
+        <h4 class="mb-3">我的收藏</h4>
         <div class="row">
-            <div class="col-md-3 mb-4">
-                <div class="card sticky-md-top" style="top: 1rem;">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-filter me-2"></i>筛选</h5>
+            {% for resource in saved_resources %}
+            <div class="col-md-4 mb-4">
+                <div class="card resource-card">
+                    <div class="card-header position-relative">
+                        {% if resource.image %}
+                        <img src="{{ resource.image.url }}" class="resource-header-image" alt="{{ resource.title }}">
+                        {% else %}
+                        <img src="{% static 'images/resource-placeholder.jpg' %}" class="resource-header-image" alt="{{ resource.title }}">
+                        {% endif %}
+                        <span class="badge bg-primary resource-type-badge">
+                            {% if resource.resource_type == 'VIDEO' %}视频
+                            {% elif resource.resource_type == 'ARTICLE' %}文章
+                            {% elif resource.resource_type == 'BOOK' %}图书
+                            {% elif resource.resource_type == 'EXERCISE' %}练习题
+                            {% elif resource.resource_type == 'TOOL' %}工具
+                            {% else %}其他{% endif %}
+                        </span>
                     </div>
                     <div class="card-body">
-                        <form method="get" action="{% url 'learning_resources' %}">
-                            <div class="mb-3">
-                                <label class="form-label">资源类型</label>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="type" value="ARTICLE" id="typeArticle" {% if 'ARTICLE' in selected_types %}checked{% endif %}>
-                                    <label class="form-check-label" for="typeArticle">
-                                        <i class="fas fa-file-alt text-success me-1"></i>文章
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="type" value="VIDEO" id="typeVideo" {% if 'VIDEO' in selected_types %}checked{% endif %}>
-                                    <label class="form-check-label" for="typeVideo">
-                                        <i class="fas fa-video text-danger me-1"></i>视频
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="type" value="BOOK" id="typeBook" {% if 'BOOK' in selected_types %}checked{% endif %}>
-                                    <label class="form-check-label" for="typeBook">
-                                        <i class="fas fa-book text-info me-1"></i>书籍
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="type" value="WEBSITE" id="typeWebsite" {% if 'WEBSITE' in selected_types %}checked{% endif %}>
-                                    <label class="form-check-label" for="typeWebsite">
-                                        <i class="fas fa-globe text-primary me-1"></i>网站
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="type" value="EXERCISE" id="typeExercise" {% if 'EXERCISE' in selected_types %}checked{% endif %}>
-                                    <label class="form-check-label" for="typeExercise">
-                                        <i class="fas fa-tasks text-warning me-1"></i>练习题
-                                    </label>
-                                </div>
+                        <h5 class="card-title">{{ resource.title }}</h5>
+                        <p class="card-text">{{ resource.description|truncatechars:80 }}</p>
+                        <div class="resource-meta mb-3">
+                            <div class="rating">
+                                <span class="rating-stars">
+                                    {% if resource.avg_rating_value %}
+                                        {% with rating_int=resource.avg_rating_value|floatformat:0|default:"0" %}
+                                            {% if rating_int == "0" %}
+                                                ☆☆☆☆☆
+                                            {% else %}
+                                                {% with stars=rating_int|stringformat:"s" %}
+                                                    {% for _ in stars|make_list %}★{% endfor %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% elif resource.ratings %}
+                                        {% with rating_count=resource.ratings.all.count|default:0 %}
+                                            {% if rating_count == 0 %}
+                                                ☆☆☆☆☆
+                                            {% else %}
+                                                {% with stars=rating_count|stringformat:"s" %}
+                                                    {% for _ in stars|make_list %}★{% endfor %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% else %}
+                                        ☆☆☆☆☆
+                                    {% endif %}
+                                </span>
+                                <span class="text-muted">
+                                    {% if resource.review_count_value %}
+                                        ({{ resource.review_count_value|default:0 }})
+                                    {% elif resource.ratings %}
+                                        ({{ resource.ratings.all.count|default:0 }})
+                                    {% else %}
+                                        (0)
+                                    {% endif %}
+                                </span>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">关键词</label>
-                                <input type="text" class="form-control" name="keyword" value="{{ request.GET.keyword|default:'' }}" placeholder="搜索...">
+                            <div class="views">
+                                <i class="fas fa-eye me-1"></i> {{ resource.view_count }}
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">排序方式</label>
-                                <select class="form-select" name="sort">
-                                    <option value="relevance" {% if request.GET.sort == 'relevance' %}selected{% endif %}>相关性</option>
-                                    <option value="latest" {% if request.GET.sort == 'latest' %}selected{% endif %}>最新添加</option>
-                                    <option value="rating" {% if request.GET.sort == 'rating' %}selected{% endif %}>最高评分</option>
-                                    <option value="popular" {% if request.GET.sort == 'popular' %}selected{% endif %}>最受欢迎</option>
-                                </select>
-                            </div>
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-search me-1"></i>应用筛选
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm btn-outline-primary">查看详情</a>
+                            <form method="POST" action="{% url 'unsave_resource' resource.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-link text-danger p-0">
+                                    <i class="fas fa-heart resource-saved"></i>
                                 </button>
-                            </div>
-                        </form>
-                        {% if request.GET %}
-                            <div class="d-grid mt-2">
-                                <a href="{% url 'learning_resources' %}" class="btn btn-outline-secondary">
-                                    <i class="fas fa-times me-1"></i>清除筛选
-                                </a>
-                            </div>
-                        {% endif %}
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="col-md-9">
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>资源列表</h5>
-                        <div class="text-muted">共 {{ resources.paginator.count }} 个资源</div>
-                    </div>
-                    <div class="card-body p-0">
-                        {% if resources %}
-                            <div class="list-group list-group-flush">
-                                {% for resource in resources %}
-                                    <div class="list-group-item p-3">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <h5 class="mb-1">
-                                                <a href="{% url 'view_resource' resource.id %}" class="text-decoration-none">
-                                                    {{ resource.title }}
-                                                </a>
-                                            </h5>
-                                            <span class="badge 
-                                                {% if resource.resource_type == 'ARTICLE' %}bg-success
-                                                {% elif resource.resource_type == 'VIDEO' %}bg-danger
-                                                {% elif resource.resource_type == 'BOOK' %}bg-info
-                                                {% elif resource.resource_type == 'WEBSITE' %}bg-primary
-                                                {% elif resource.resource_type == 'EXERCISE' %}bg-warning
-                                                {% endif %}">
-                                                {{ resource.get_resource_type_display }}
-                                            </span>
-                                        </div>
-                                        <p class="text-muted small mb-2">
-                                            {% if resource.author %}
-                                                <i class="fas fa-user me-1"></i>{{ resource.author }} |
-                                            {% endif %}
-                                            <i class="fas fa-calendar-alt me-1"></i>{{ resource.created_at|date:"Y-m-d" }}
-                                            {% if resource.avg_rating %}
-                                                | <i class="fas fa-star text-warning me-1"></i>{{ resource.avg_rating }} ({{ resource.review_count }}条评价)
-                                            {% endif %}
-                                        </p>
-                                        <p class="mb-2">{{ resource.description|truncatechars:150 }}</p>
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm btn-outline-primary">
-                                                <i class="fas fa-info-circle me-1"></i>查看详情
-                                            </a>
-                                            <div>
-                                                {% if user in resource.saved_by.all %}
-                                                    <form method="post" action="{% url 'unsave_resource' resource.id %}" class="d-inline">
-                                                        {% csrf_token %}
-                                                        <button type="submit" class="btn btn-sm btn-secondary">
-                                                            <i class="fas fa-bookmark me-1"></i>已收藏
-                                                        </button>
-                                                    </form>
-                                                {% else %}
-                                                    <form method="post" action="{% url 'save_resource' resource.id %}" class="d-inline">
-                                                        {% csrf_token %}
-                                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                                            <i class="far fa-bookmark me-1"></i>收藏
-                                                        </button>
-                                                    </form>
-                                                {% endif %}
-                                                {% if resource.url %}
-                                                    <a href="{{ resource.url }}" target="_blank" class="btn btn-sm btn-outline-info ms-1">
-                                                        <i class="fas fa-external-link-alt me-1"></i>访问
-                                                    </a>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                            
-                            {% if is_paginated %}
-                            <div class="card-footer">
-                                <nav>
-                                    <ul class="pagination justify-content-center mb-0">
-                                        {% if page_obj.has_previous %}
-                                        <li class="page-item">
-                                            <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ page_obj.previous_page_number }}">上一页</a>
-                                        </li>
-                                        {% else %}
-                                        <li class="page-item disabled">
-                                            <span class="page-link">上一页</span>
-                                        </li>
-                                        {% endif %}
-                                        
-                                        {% for num in page_obj.paginator.page_range %}
-                                            {% if page_obj.number == num %}
-                                            <li class="page-item active">
-                                                <span class="page-link">{{ num }}</span>
-                                            </li>
-                                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                            <li class="page-item">
-                                                <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ num }}">{{ num }}</a>
-                                            </li>
-                                            {% endif %}
-                                        {% endfor %}
-                                        
-                                        {% if page_obj.has_next %}
-                                        <li class="page-item">
-                                            <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ page_obj.next_page_number }}">下一页</a>
-                                        </li>
-                                        {% else %}
-                                        <li class="page-item disabled">
-                                            <span class="page-link">下一页</span>
-                                        </li>
-                                        {% endif %}
-                                    </ul>
-                                </nav>
-                            </div>
-                            {% endif %}
-                        {% else %}
-                            <div class="text-center py-5">
-                                <i class="fas fa-search fa-4x mb-3 text-muted"></i>
-                                <h5>未找到符合条件的资源</h5>
-                                <p class="text-muted">尝试使用其他关键词或清除筛选条件</p>
-                                <a href="{% url 'learning_resources' %}" class="btn btn-outline-primary mt-2">
-                                    <i class="fas fa-times me-1"></i>清除所有筛选
-                                </a>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-bookmark me-2 text-primary"></i>我的收藏</h5>
-                    </div>
-                    <div class="card-body p-0">
-                        {% if saved_resources %}
-                            <div class="list-group list-group-flush">
-                                {% for resource in saved_resources %}
-                                    <div class="list-group-item p-3">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <h6 class="mb-1">
-                                                <a href="{% url 'view_resource' resource.id %}" class="text-decoration-none">
-                                                    {{ resource.title }}
-                                                </a>
-                                            </h6>
-                                            <span class="badge 
-                                                {% if resource.resource_type == 'ARTICLE' %}bg-success
-                                                {% elif resource.resource_type == 'VIDEO' %}bg-danger
-                                                {% elif resource.resource_type == 'BOOK' %}bg-info
-                                                {% elif resource.resource_type == 'WEBSITE' %}bg-primary
-                                                {% elif resource.resource_type == 'EXERCISE' %}bg-warning
-                                                {% endif %}">
-                                                {{ resource.get_resource_type_display }}
-                                            </span>
-                                        </div>
-                                        <p class="mb-2 small text-muted">{{ resource.description|truncatechars:100 }}</p>
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm btn-outline-primary">
-                                                    <i class="fas fa-eye me-1"></i>查看
-                                                </a>
-                                                {% if resource.url %}
-                                                    <a href="{{ resource.url }}" target="_blank" class="btn btn-sm btn-outline-info ms-1">
-                                                        <i class="fas fa-external-link-alt me-1"></i>访问
-                                                    </a>
-                                                {% endif %}
-                                            </div>
-                                            <form method="post" action="{% url 'unsave_resource' resource.id %}">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                    <i class="fas fa-trash me-1"></i>取消收藏
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="text-center py-4">
-                                <i class="far fa-bookmark fa-3x mb-3 text-muted"></i>
-                                <p>您还没有收藏任何资源</p>
-                                <p class="text-muted small">浏览资源库并收藏有用的资源以便日后查阅</p>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 资源列表 -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>全部资源</h4>
+            <div class="text-muted">
+                显示 {{ resources|length }} 个学习资源
             </div>
         </div>
+        
+        {% if resources %}
+        <div class="row">
+            {% for resource in resources %}
+            <div class="col-md-4 mb-4">
+                <div class="card resource-card">
+                    <div class="card-header position-relative">
+                        {% if resource.image %}
+                        <img src="{{ resource.image.url }}" class="resource-header-image" alt="{{ resource.title }}">
+                        {% else %}
+                        <img src="{% static 'images/resource-placeholder.jpg' %}" class="resource-header-image" alt="{{ resource.title }}">
+                        {% endif %}
+                        <span class="badge bg-primary resource-type-badge">
+                            {% if resource.resource_type == 'VIDEO' %}视频
+                            {% elif resource.resource_type == 'ARTICLE' %}文章
+                            {% elif resource.resource_type == 'BOOK' %}图书
+                            {% elif resource.resource_type == 'EXERCISE' %}练习题
+                            {% elif resource.resource_type == 'TOOL' %}工具
+                            {% else %}其他{% endif %}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">{{ resource.title }}</h5>
+                        <p class="card-text">{{ resource.description|truncatechars:80 }}</p>
+                        <div class="mb-2">
+                            {% if resource.tags %}
+                            {% for tag in resource.tags.split|slice:":3" %}
+                            <span class="resource-tag">{{ tag }}</span>
+                            {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div class="resource-meta mb-3">
+                            <div class="rating">
+                                <span class="rating-stars">
+                                    {% if resource.avg_rating_value %}
+                                        {% with rating_int=resource.avg_rating_value|floatformat:0|default:"0" %}
+                                            {% if rating_int == "0" %}
+                                                ☆☆☆☆☆
+                                            {% else %}
+                                                {% with stars=rating_int|stringformat:"s" %}
+                                                    {% for _ in stars|make_list %}★{% endfor %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% elif resource.ratings %}
+                                        {% with rating_count=resource.ratings.all.count|default:0 %}
+                                            {% if rating_count == 0 %}
+                                                ☆☆☆☆☆
+                                            {% else %}
+                                                {% with stars=rating_count|stringformat:"s" %}
+                                                    {% for _ in stars|make_list %}★{% endfor %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% else %}
+                                        ☆☆☆☆☆
+                                    {% endif %}
+                                </span>
+                                <span class="text-muted">
+                                    {% if resource.review_count_value %}
+                                        ({{ resource.review_count_value|default:0 }})
+                                    {% elif resource.ratings %}
+                                        ({{ resource.ratings.all.count|default:0 }})
+                                    {% else %}
+                                        (0)
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="views">
+                                <i class="fas fa-eye me-1"></i> {{ resource.view_count }}
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm btn-outline-primary">查看详情</a>
+                            <form method="POST" action="{% url 'save_resource' resource.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-link text-muted p-0">
+                                    {% if request.user in resource.saved_by.all %}
+                                    <i class="fas fa-heart resource-saved"></i>
+                                    {% else %}
+                                    <i class="far fa-heart"></i>
+                                    {% endif %}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- 分页 -->
+        {% if is_paginated %}
+        <div class="pagination-container">
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if request.GET.keyword %}&keyword={{ request.GET.keyword }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" aria-label="First">
+                        <span aria-hidden="true">&laquo;&laquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.keyword %}&keyword={{ request.GET.keyword }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if request.GET.keyword %}&keyword={{ request.GET.keyword }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}">{{ num }}</a>
+                </li>
+                {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.keyword %}&keyword={{ request.GET.keyword }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.keyword %}&keyword={{ request.GET.keyword }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" aria-label="Last">
+                        <span aria-hidden="true">&raquo;&raquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <!-- 空状态 -->
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-book-open"></i>
+            </div>
+            <h4>暂无学习资源</h4>
+            <p class="text-muted">请尝试更改筛选条件，或稍后再查看</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %} 

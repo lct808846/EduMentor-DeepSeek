@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Problem(models.Model):
     """题目模型"""
@@ -72,30 +74,36 @@ class KnowledgeCard(models.Model):
 
 class LearningResource(models.Model):
     """学习资源模型"""
-    TYPE_CHOICES = [
-        ('ARTICLE', '文章'),
+    RESOURCE_TYPES = (
         ('VIDEO', '视频'),
-        ('BOOK', '书籍'),
-        ('WEBSITE', '网站'),
+        ('ARTICLE', '文章'),
+        ('BOOK', '图书'),
         ('EXERCISE', '练习题'),
-    ]
+        ('TOOL', '工具'),
+    )
     
-    title = models.CharField(max_length=200, verbose_name='标题')
-    description = models.TextField(verbose_name='描述')
-    resource_type = models.CharField(max_length=10, choices=TYPE_CHOICES, verbose_name='资源类型')
-    url = models.URLField(blank=True, null=True, verbose_name='链接')
-    author = models.CharField(max_length=100, blank=True, null=True, verbose_name='作者')
-    created_at = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
-    saved_by = models.ManyToManyField(User, related_name='saved_resources', blank=True, verbose_name='收藏者')
-    avg_rating = models.FloatField(default=0, verbose_name='平均评分')
-    review_count = models.IntegerField(default=0, verbose_name='评价数量')
+    title = models.CharField(max_length=200, verbose_name="标题")
+    description = models.TextField(verbose_name="描述")
+    content = models.TextField(verbose_name="内容", blank=True, null=True)
+    resource_type = models.CharField(max_length=20, choices=RESOURCE_TYPES, verbose_name="资源类型")
+    image = models.ImageField(upload_to='resources/images/', blank=True, null=True, verbose_name="封面图片")
+    file_url = models.URLField(blank=True, null=True, verbose_name="文件链接")
+    video_url = models.URLField(blank=True, null=True, verbose_name="视频链接")
+    external_url = models.URLField(blank=True, null=True, verbose_name="外部链接")
+    tags = models.CharField(max_length=200, blank=True, null=True, verbose_name="标签")
+    difficulty_level = models.IntegerField(default=1, choices=[(1, '初级'), (2, '中级'), (3, '高级')], verbose_name="难度级别")
+    view_count = models.IntegerField(default=0, verbose_name="查看次数")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    saved_by = models.ManyToManyField(User, related_name='saved_resources', blank=True, verbose_name="收藏用户")
     
     def __str__(self):
-        return f"{self.title} ({self.get_resource_type_display()})"
+        return self.title
     
     class Meta:
-        verbose_name = '学习资源'
-        verbose_name_plural = '学习资源'
+        verbose_name = "学习资源"
+        verbose_name_plural = "学习资源"
+        ordering = ['-created_at']
 
 class ResourceRecommendation(models.Model):
     """资源推荐模型"""
@@ -144,3 +152,35 @@ class ResourceReview(models.Model):
     
     def __str__(self):
         return f"{self.user.username} 对 {self.resource.title} 的评价"
+
+class ResourceRating(models.Model):
+    """资源评价模型"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='resource_ratings', verbose_name="用户")
+    resource = models.ForeignKey(LearningResource, on_delete=models.CASCADE, related_name='ratings', verbose_name="资源")
+    score = models.IntegerField(verbose_name="评分", choices=[(1, '1星'), (2, '2星'), (3, '3星'), (4, '4星'), (5, '5星')])
+    comment = models.TextField(verbose_name="评论")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    
+    class Meta:
+        verbose_name = "资源评价"
+        verbose_name_plural = "资源评价"
+        unique_together = ['user', 'resource']  # 每个用户只能评价一次
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} 评价 {self.resource.title}: {self.score}星"
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """当用户被创建时，自动创建对应的资料"""
+    if created:
+        UserProfile.objects.get_or_create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    """当用户被保存时，自动保存对应的资料"""
+    try:
+        instance.profile.save()
+    except User.profile.RelatedObjectDoesNotExist:
+        UserProfile.objects.create(user=instance)

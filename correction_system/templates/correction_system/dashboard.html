@@ -1,218 +1,157 @@
 {% extends 'correction_system/base.html' %}
+{% load static %}
 
-{% block title %}仪表盘 - 智学导师{% endblock %}
+{% block title %}仪表盘 | 智学导师{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center animation-fade-in">
-    <div class="col-md-10">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="fs-3"><i class="fas fa-tachometer-alt me-2 text-primary"></i>欢迎回来，{{ user.username }}</h2>
-            <div>
-                <a href="{% url 'solve_problem' %}" class="btn btn-outline-primary me-2">
-                    <i class="fas fa-question-circle me-1"></i>解答题目
-                </a>
-                <a href="{% url 'correct_homework' %}" class="btn btn-primary">
-                    <i class="fas fa-book me-1"></i>批改作业
-                </a>
+<div class="container py-4">
+    <h1 class="mb-4">欢迎回来，{{ request.user.username }}</h1>
+    
+    <div class="row mb-4">
+        <!-- 解答的题目卡片 -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="display-1 text-primary mb-3">
+                        <i class="fas fa-question-circle"></i>
+                    </div>
+                    <h5 class="card-title">解答的题目</h5>
+                    <p class="card-text">
+                        您已经解答了 <strong class="text-primary">{{ problem_count }}</strong> 道题目
+                        {% if recent_activity_count > 0 %}
+                        <br>最近7天有 <strong class="text-success">{{ recent_activity_count }}</strong> 次学习活动
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'problem_history' %}" class="btn btn-outline-primary">查看题目历史</a>
+                </div>
             </div>
         </div>
         
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <!-- 批改的作业卡片 -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="display-1 text-success mb-3">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <h5 class="card-title">批改的作业</h5>
+                    <p class="card-text">
+                        您已经提交了 <strong class="text-primary">{{ homework_count }}</strong> 份作业
+                        {% if avg_score > 0 %}
+                        <br>平均得分 <strong class="text-success">{{ avg_score }}</strong> 分
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'homework_history' %}" class="btn btn-outline-success">查看作业历史</a>
                 </div>
-            {% endfor %}
+            </div>
+        </div>
+        
+        <!-- 创建的知识卡片 -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="display-1 text-warning mb-3">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <h5 class="card-title">创建的知识卡片</h5>
+                    <p class="card-text">
+                        您已经创建了 <strong class="text-primary">{{ card_count }}</strong> 张知识卡片
+                        {% if favorite_cards %}
+                        <br>收藏了 <strong class="text-success">{{ favorite_cards|length }}</strong> 张卡片
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'knowledge_cards' %}" class="btn btn-outline-warning">查看知识卡片</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近活动和推荐资源 -->
+    <div class="row">
+        {% if recent_problems or recent_homeworks %}
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">最近活动</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for problem in recent_problems %}
+                        <a href="{% url 'view_problem' problem.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">解答题目</h6>
+                                <small>{{ problem.created_at|date:"Y-m-d H:i" }}</small>
+                            </div>
+                            <p class="mb-1">
+                                {% if problem.problem_type == 'TEXT' %}
+                                {{ problem.text_content|truncatechars:50 }}
+                                {% else %}
+                                [图片题目]
+                                {% endif %}
+                            </p>
+                        </a>
+                        {% endfor %}
+                        
+                        {% for homework in recent_homeworks %}
+                        <a href="{% url 'view_homework' homework.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">批改作业</h6>
+                                <small>{{ homework.created_at|date:"Y-m-d H:i" }}</small>
+                            </div>
+                            <p class="mb-1">
+                                得分：{{ homework.score|default:"待批改" }}
+                                {% if homework.subject %}({{ homework.subject }}){% endif %}
+                            </p>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endif %}
         
-        <!-- 学习统计 -->
-        <div class="row mb-4">
-            <div class="col-md-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <i class="fas fa-question-circle fa-3x text-primary mb-3"></i>
-                        <h3 class="display-6">{{ stats.problem_count }}</h3>
-                        <p class="mb-0">解答的题目</p>
-                        <a href="{% url 'problem_history' %}" class="stretched-link text-decoration-none small">查看题目历史</a>
-                    </div>
+        {% if recommended_resources %}
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">推荐学习资源</h5>
                 </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <i class="fas fa-book fa-3x text-success mb-3"></i>
-                        <h3 class="display-6">{{ stats.homework_count }}</h3>
-                        <p class="mb-0">批改的作业</p>
-                        <a href="{% url 'homework_history' %}" class="stretched-link text-decoration-none small">查看作业历史</a>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for resource in recommended_resources %}
+                        <a href="{% url 'view_resource' resource.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ resource.title }}</h6>
+                                <small>
+                                    {% if resource.avg_rating_value %}
+                                    <span class="text-warning">★</span> {{ resource.avg_rating_value|floatformat:1 }}
+                                    {% elif resource.avg_rating %}
+                                    <span class="text-warning">★</span> {{ resource.avg_rating|floatformat:1 }}
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <p class="mb-1">{{ resource.description|truncatechars:80 }}</p>
+                            <small>
+                                {% if resource.resource_type == 'VIDEO' %}视频
+                                {% elif resource.resource_type == 'ARTICLE' %}文章
+                                {% elif resource.resource_type == 'BOOK' %}电子书
+                                {% elif resource.resource_type == 'EXERCISE' %}练习题
+                                {% else %}学习资源{% endif %}
+                                • 浏览量: {{ resource.view_count }}
+                            </small>
+                        </a>
+                        {% endfor %}
                     </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <i class="fas fa-lightbulb fa-3x text-warning mb-3"></i>
-                        <h3 class="display-6">{{ stats.card_count }}</h3>
-                        <p class="mb-0">创建的知识卡片</p>
-                        <a href="{% url 'knowledge_cards' %}" class="stretched-link text-decoration-none small">查看知识卡片</a>
+                    
+                    <div class="mt-3 text-end">
+                        <a href="{% url 'learning_resources' %}" class="btn btn-sm btn-outline-primary">
+                            浏览全部资源 <i class="fas fa-arrow-right"></i>
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <!-- 最近活动 -->
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-question-circle me-2 text-primary"></i>最近解答的题目</h5>
-                        <a href="{% url 'problem_history' %}" class="btn btn-primary btn-sm fw-bold" style="box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-                            查看更多 <i class="fas fa-angle-right ms-1"></i>
-                        </a>
-                    </div>
-                    <div class="card-body p-0">
-                        {% if recent_problems %}
-                            <div class="list-group list-group-flush">
-                                {% for problem in recent_problems %}
-                                    <div class="list-group-item">
-                                        <div class="d-flex w-100 justify-content-between">
-                                            <h6 class="mb-1">
-                                                {% if problem.problem_type == 'TEXT' %}
-                                                    <span class="badge bg-primary me-1">文字</span>
-                                                {% else %}
-                                                    <span class="badge bg-success me-1">图片</span>
-                                                {% endif %}
-                                                {{ problem.text_content|truncatechars:50 }}
-                                            </h6>
-                                            <small class="text-muted">{{ problem.created_at|date:"m-d H:i" }}</small>
-                                        </div>
-                                        <p class="mb-1 small text-muted">{{ problem.solution|truncatechars:100 }}</p>
-                                        <a href="{% url 'view_problem' problem.id %}" class="btn btn-sm btn-outline-primary mt-1">查看详情</a>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="p-4 text-center">
-                                <i class="fas fa-question-circle fa-3x mb-3 text-muted"></i>
-                                <p>您还没有解答过任何题目</p>
-                                <a href="{% url 'solve_problem' %}" class="btn btn-primary">开始解答题目</a>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-book me-2 text-success"></i>最近批改的作业</h5>
-                        <a href="{% url 'homework_history' %}" class="btn btn-success btn-sm fw-bold" style="box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-                            查看更多 <i class="fas fa-angle-right ms-1"></i>
-                        </a>
-                    </div>
-                    <div class="card-body p-0">
-                        {% if recent_homeworks %}
-                            <div class="list-group list-group-flush">
-                                {% for homework in recent_homeworks %}
-                                    <div class="list-group-item py-2">
-                                        <div class="d-flex w-100 justify-content-between align-items-center mb-1">
-                                            <h6 class="mb-0">
-                                                作业 #{{ homework.id }}
-                                                <span class="badge 
-                                                    {% if homework.score >= 9 %}bg-success
-                                                    {% elif homework.score >= 8 %}bg-primary
-                                                    {% elif homework.score >= 7 %}bg-info
-                                                    {% elif homework.score >= 6 %}bg-warning
-                                                    {% else %}bg-danger
-                                                    {% endif %} ms-1">
-                                                    {{ homework.score }}分
-                                                </span>
-                                            </h6>
-                                            <small class="text-muted">{{ homework.created_at|date:"m-d H:i" }}</small>
-                                        </div>
-                                        <p class="mb-1 small text-muted">{{ homework.correction_result|truncatechars:80 }}</p>
-                                        <div class="d-flex justify-content-end">
-                                            <a href="{% url 'view_homework' homework.id %}" class="btn btn-sm btn-outline-success mt-1">查看详情</a>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="p-3 text-center">
-                                <i class="fas fa-book fa-2x mb-2 text-muted"></i>
-                                <p class="mb-2">您还没有批改过任何作业</p>
-                                <a href="{% url 'correct_homework' %}" class="btn btn-success">开始批改作业</a>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 推荐资源 -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-book-reader me-2 text-info"></i>推荐学习资源</h5>
-                        <a href="{% url 'learning_resources' %}" class="btn btn-info btn-sm fw-bold" style="box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-                            浏览更多资源 <i class="fas fa-angle-right ms-1"></i>
-                        </a>
-                    </div>
-                    <div class="card-body p-0">
-                        {% if recommended_resources %}
-                            <div class="list-group list-group-flush">
-                                {% for resource in recommended_resources %}
-                                    <div class="list-group-item">
-                                        <div class="row align-items-center">
-                                            <div class="col-md-8">
-                                                <h6 class="mb-1">
-                                                    {{ resource.title }}
-                                                    <span class="badge 
-                                                        {% if resource.resource_type == 'ARTICLE' %}bg-success
-                                                        {% elif resource.resource_type == 'VIDEO' %}bg-danger
-                                                        {% elif resource.resource_type == 'BOOK' %}bg-info
-                                                        {% elif resource.resource_type == 'WEBSITE' %}bg-primary
-                                                        {% elif resource.resource_type == 'EXERCISE' %}bg-warning
-                                                        {% endif %} ms-1">
-                                                        {{ resource.get_resource_type_display }}
-                                                    </span>
-                                                </h6>
-                                                <p class="mb-1 small text-muted">{{ resource.description|truncatechars:120 }}</p>
-                                            </div>
-                                            <div class="col-md-4 text-md-end mt-2 mt-md-0">
-                                                <div class="mb-2">
-                                                    {% for i in '12345' %}
-                                                        {% if forloop.counter <= resource.avg_rating %}
-                                                            <i class="fas fa-star text-warning small"></i>
-                                                        {% else %}
-                                                            <i class="far fa-star text-warning small"></i>
-                                                        {% endif %}
-                                                    {% endfor %}
-                                                    <span class="small text-muted ms-1">{{ resource.avg_rating|floatformat:1 }}</span>
-                                                </div>
-                                                <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm btn-outline-info">查看资源</a>
-                                                {% if resource.url %}
-                                                    <a href="{{ resource.url }}" target="_blank" class="btn btn-sm btn-outline-secondary ms-1">
-                                                        <i class="fas fa-external-link-alt"></i>
-                                                    </a>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="p-4 text-center">
-                                <i class="fas fa-book-reader fa-3x mb-3 text-muted"></i>
-                                <p>暂无推荐资源</p>
-                                <a href="{% url 'recommend_resources' %}" class="btn btn-info">获取资源推荐</a>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %} 

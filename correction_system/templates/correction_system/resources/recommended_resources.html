@@ -1,0 +1,159 @@
+{% extends 'correction_system/base.html' %}
+{% load static %}
+
+{% block title %}个性化推荐 | 学习资源{% endblock %}
+
+{% block extra_css %}
+<style>
+    .resource-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .resource-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .resource-card .card-header {
+        padding: 0;
+        border-bottom: none;
+    }
+    
+    .resource-header-image {
+        width: 100%;
+        height: 140px;
+        object-fit: cover;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+    }
+    
+    .resource-type-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 0.8rem;
+    }
+    
+    .recommendation-header {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .recommendation-title {
+        color: #2c3e50;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+    
+    .recommendation-desc {
+        color: #7f8c8d;
+    }
+    
+    .resource-tag {
+        display: inline-block;
+        background-color: #e9ecef;
+        color: #495057;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        margin-right: 5px;
+        margin-bottom: 5px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        margin-top: 20px;
+    }
+    
+    .empty-state-icon {
+        font-size: 60px;
+        color: #bdc3c7;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'learning_resources' %}">学习资源</a></li>
+            <li class="breadcrumb-item active" aria-current="page">个性化推荐</li>
+        </ol>
+    </nav>
+    
+    <div class="recommendation-header">
+        <h2 class="recommendation-title">为您推荐的学习资源</h2>
+        <p class="recommendation-desc">基于您的学习历史、兴趣和学习习惯，我们为您精心挑选了以下学习资源。这些资源将帮助您更高效地学习和提高。</p>
+    </div>
+    
+    {% if resources %}
+    <div class="row">
+        {% for resource in resources %}
+        <div class="col-md-4 mb-4">
+            <div class="card resource-card">
+                <div class="card-header position-relative">
+                    {% if resource.image %}
+                    <img src="{{ resource.image.url }}" class="resource-header-image" alt="{{ resource.title }}">
+                    {% else %}
+                    <img src="{% static 'images/resource-placeholder.jpg' %}" class="resource-header-image" alt="{{ resource.title }}">
+                    {% endif %}
+                    <span class="badge {% if resource.resource_type == 'VIDEO' %}bg-danger{% elif resource.resource_type == 'ARTICLE' %}bg-primary{% elif resource.resource_type == 'BOOK' %}bg-success{% elif resource.resource_type == 'EXERCISE' %}bg-warning{% else %}bg-secondary{% endif %} resource-type-badge">
+                        {% if resource.resource_type == 'VIDEO' %}视频
+                        {% elif resource.resource_type == 'ARTICLE' %}文章
+                        {% elif resource.resource_type == 'BOOK' %}图书
+                        {% elif resource.resource_type == 'EXERCISE' %}练习题
+                        {% elif resource.resource_type == 'TOOL' %}工具
+                        {% else %}其他{% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ resource.title }}</h5>
+                    <p class="card-text">{{ resource.description|truncatechars:80 }}</p>
+                    <div class="mb-2">
+                        {% if resource.tags %}
+                        {% for tag in resource.tags.split|slice:":3" %}
+                        <span class="resource-tag">{{ tag }}</span>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'view_resource' resource.id %}" class="btn btn-sm btn-outline-primary">查看详情</a>
+                        <form method="POST" action="{% url 'save_resource' resource.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-link text-muted p-0">
+                                {% if request.user in resource.saved_by.all %}
+                                <i class="fas fa-heart text-danger"></i>
+                                {% else %}
+                                <i class="far fa-heart"></i>
+                                {% endif %}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <i class="fas fa-lightbulb"></i>
+        </div>
+        <h4>暂无个性化推荐</h4>
+        <p class="text-muted">随着您使用本系统解题、提交作业和浏览资源，我们将为您提供更精准的个性化推荐</p>
+        <a href="{% url 'learning_resources' %}" class="btn btn-primary mt-3">
+            <i class="fas fa-search me-1"></i> 浏览所有资源
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

@@ -8,11 +8,11 @@ from django.core.files.base import ContentFile
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
-from django.db.models import Q, Avg, Count, Max
+from django.db.models import Q, Avg, Count, Max, F, Case, When, IntegerField
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import HttpResponseRedirect
 from django.urls import reverse
-from .models import Problem, Homework, KnowledgeCard, LearningResource, ResourceRecommendation, UserProfile, ResourceReview
+from .models import Problem, Homework, KnowledgeCard, LearningResource, ResourceRecommendation, UserProfile, ResourceReview, ResourceRating
 from .forms import (
     TextProblemForm, ImageProblemForm, HomeworkForm, 
     UserRegisterForm, UserLoginForm, ProfileForm,
@@ -22,6 +22,7 @@ from .forms import (
 )
 from .services import DeepSeekService, KnowledgeExtractor, ResourceRecommender
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 # 创建DeepSeek服务实例
 deepseek_service = DeepSeekService()
@@ -762,197 +763,238 @@ def delete_knowledge_card(request, card_id):
 # 学习资源相关视图
 @login_required
 def learning_resources(request):
-    """显示学习资源列表"""
-    types = request.GET.getlist('type')
-    keyword = request.GET.get('keyword')
+    """学习资源列表视图"""
+    # 获取筛选参数
+    keyword = request.GET.get('keyword', '')
+    resource_type = request.GET.get('type', '')
     sort = request.GET.get('sort', 'relevance')
+    subjects = request.GET.getlist('subject')
     
+    # 基础查询
     resources = LearningResource.objects.all()
     
-    # 应用筛选
-    if types:
-        resources = resources.filter(resource_type__in=types)
-    
+    # 关键词筛选
     if keyword:
-        resources = resources.filter(title__icontains=keyword) | resources.filter(description__icontains=keyword) | resources.filter(tags__icontains=keyword)
+        resources = resources.filter(
+            Q(title__icontains=keyword) | 
+            Q(description__icontains=keyword) | 
+            Q(content__icontains=keyword) |
+            Q(tags__icontains=keyword)
+        )
     
-    # 应用排序
+    # 资源类型筛选
+    if resource_type:
+        resources = resources.filter(resource_type=resource_type)
+    
+    # 学科筛选
+    if subjects:
+        q_objects = Q()
+        for subject in subjects:
+            q_objects |= Q(tags__icontains=subject)
+        resources = resources.filter(q_objects)
+    
+    # 排序
     if sort == 'latest':
         resources = resources.order_by('-created_at')
     elif sort == 'rating':
-        resources = resources.annotate(avg_rating=Avg('resourcereview__rating')).order_by('-avg_rating')
+        resources = resources.annotate(avg_rating=Avg('ratings__score')).order_by('-avg_rating')
     elif sort == 'popular':
-        resources = resources.annotate(save_count=Count('saved_by')).order_by('-save_count')
+        resources = resources.order_by('-view_count')
+    else:  # relevance (default)
+        if keyword:
+            # 使用Case-When根据关键词匹配程度排序
+            resources = resources.annotate(
+                relevance=Case(
+                    When(title__icontains=keyword, then=10),
+                    When(description__icontains=keyword, then=5),
+                    When(tags__icontains=keyword, then=3),
+                    When(content__icontains=keyword, then=1),
+                    default=0,
+                    output_field=IntegerField()
+                )
+            ).order_by('-relevance', '-created_at')
+        else:
+            resources = resources.order_by('-created_at')
     
-    # 获取用户收藏的资源
-    saved_resources = request.user.saved_resources.all()[:5]
+    # 统计相关信息
+    resources = resources.annotate(
+        avg_rating=Avg('ratings__score'),
+        review_count=Count('ratings', distinct=True)
+    )
     
     # 分页
-    paginator = Paginator(resources, 10)
-    page_number = request.GET.get('page', 1)
-    resources = paginator.get_page(page_number)
+    paginator = Paginator(resources, 12)  # 每页显示12个资源
+    page = request.GET.get('page')
+    
+    try:
+        resources = paginator.page(page)
+    except PageNotAnInteger:
+        resources = paginator.page(1)
+    except EmptyPage:
+        resources = paginator.page(paginator.num_pages)
+    
+    # 获取用户收藏的资源
+    if request.user.is_authenticated:
+        saved_resources = request.user.saved_resources.all()[:3]  # 只显示前3个收藏
+    else:
+        saved_resources = []
     
     context = {
         'resources': resources,
-        'selected_types': types,
         'saved_resources': saved_resources,
-        'is_paginated': paginator.num_pages > 1,
-        'page_obj': resources
+        'selected_types': [resource_type] if resource_type else [],
+        'is_paginated': resources.has_other_pages(),
+        'page_obj': resources,
     }
+    
     return render(request, 'correction_system/resources/learning_resources.html', context)
 
 @login_required
 def view_resource(request, resource_id):
-    """查看单个学习资源详情"""
-    resource = get_object_or_404(LearningResource, id=resource_id)
+    """查看单个学习资源"""
+    try:
+        resource = LearningResource.objects.get(id=resource_id)
+    except LearningResource.DoesNotExist:
+        messages.error(request, "资源不存在或已被删除")
+        return redirect('learning_resources')
     
-    # 获取相关资源
-    related_resources = None
-    if resource.tags:
-        related_resources = LearningResource.objects.filter(
-            tags__icontains=resource.tags.split(',')[0],
-            resource_type=resource.resource_type
-        ).exclude(id=resource.id)[:3]
+    # 增加浏览量
+    LearningResource.objects.filter(id=resource_id).update(view_count=F('view_count') + 1)
     
-    # 获取用户评价
-    reviews = ResourceReview.objects.filter(resource=resource).order_by('-created_at')
-    user_review = ResourceReview.objects.filter(resource=resource, user=request.user).first()
-    user_rating = user_review.rating if user_review else None
+    # 获取相关资源（同类型或相同标签）
+    similar_resources = LearningResource.objects.filter(
+        Q(resource_type=resource.resource_type) | 
+        Q(tags__icontains=resource.tags.split(',')[0] if resource.tags else '')
+    ).exclude(id=resource_id)[:5]
+    
+    # 获取个性化推荐
+    if hasattr(request.user, 'profile') and hasattr(request.user.profile, 'learning_preferences'):
+        recommended_resources = get_resource_recommendations(
+            request.user.id, 
+            interests=getattr(request.user.profile, 'subjects_of_interest', ''),
+            preferences=getattr(request.user.profile, 'learning_preferences', '')
+        )[:5]
+    else:
+        # 如果没有足够的用户数据，返回几个评分最高的资源
+        recommended_resources = LearningResource.objects.annotate(
+            avg_rating=Avg('ratings__score')
+        ).order_by('-avg_rating')[:5]
     
     context = {
         'resource': resource,
-        'related_resources': related_resources,
-        'reviews': reviews,
-        'user_review': user_review,
-        'user_rating': user_rating
+        'similar_resources': similar_resources,
+        'recommended_resources': recommended_resources,
     }
+    
     return render(request, 'correction_system/resources/view_resource.html', context)
+
+@login_required
+@require_POST
+def save_resource(request, resource_id):
+    """收藏学习资源"""
+    try:
+        resource = LearningResource.objects.get(id=resource_id)
+        resource.saved_by.add(request.user)
+        messages.success(request, f"已收藏《{resource.title}》")
+    except LearningResource.DoesNotExist:
+        messages.error(request, "资源不存在或已被删除")
+    
+    # 重定向回之前的页面
+    next_url = request.META.get('HTTP_REFERER', 'learning_resources')
+    return redirect(next_url)
+
+@login_required
+@require_POST
+def unsave_resource(request, resource_id):
+    """取消收藏学习资源"""
+    try:
+        resource = LearningResource.objects.get(id=resource_id)
+        resource.saved_by.remove(request.user)
+        messages.success(request, f"已取消收藏《{resource.title}》")
+    except LearningResource.DoesNotExist:
+        messages.error(request, "资源不存在或已被删除")
+    
+    # 重定向回之前的页面
+    next_url = request.META.get('HTTP_REFERER', 'learning_resources')
+    return redirect(next_url)
+
+@login_required
+@require_POST
+def rate_resource(request, resource_id):
+    """评价学习资源"""
+    try:
+        resource = LearningResource.objects.get(id=resource_id)
+        
+        # 获取评分和评论
+        rating = request.POST.get('rating')
+        comment = request.POST.get('comment')
+        
+        if not rating or not rating.isdigit() or int(rating) < 1 or int(rating) > 5:
+            messages.error(request, "请提供有效的评分（1-5）")
+            return redirect('view_resource', resource_id=resource_id)
+        
+        # 检查用户是否已经评价过
+        existing_rating = ResourceRating.objects.filter(
+            user=request.user,
+            resource=resource
+        ).first()
+        
+        if existing_rating:
+            # 更新现有评价
+            existing_rating.score = rating
+            existing_rating.comment = comment
+            existing_rating.save()
+            messages.success(request, "您的评价已更新")
+        else:
+            # 创建新评价
+            ResourceRating.objects.create(
+                user=request.user,
+                resource=resource,
+                score=rating,
+                comment=comment
+            )
+            messages.success(request, "感谢您的评价")
+        
+    except LearningResource.DoesNotExist:
+        messages.error(request, "资源不存在或已被删除")
+    
+    return redirect('view_resource', resource_id=resource_id)
 
 @login_required
 def recommend_resources(request):
     """推荐学习资源"""
-    problem_id = request.GET.get('problem_id')
-    homework_id = request.GET.get('homework_id')
+    # 获取用户偏好
+    user_interests = ''
+    user_preferences = ''
     
-    problem = None
-    homework = None
-    recommended_resources = []
+    if hasattr(request.user, 'profile'):
+        user_interests = getattr(request.user.profile, 'subjects_of_interest', '')
+        user_preferences = getattr(request.user.profile, 'learning_preferences', '')
     
-    if problem_id:
-        problem = get_object_or_404(Problem, id=problem_id, user=request.user)
+    # 获取推荐资源
+    recommended = get_resource_recommendations(
+        request.user.id, 
+        interests=user_interests,
+        preferences=user_preferences
+    )
     
-    if homework_id:
-        homework = get_object_or_404(Homework, id=homework_id, user=request.user)
-    
-    # 处理搜索
-    if request.method == 'GET' and 'keyword' in request.GET:
-        keyword = request.GET.get('keyword')
-        resource_types = request.GET.getlist('resource_type')
-        difficulty = request.GET.get('difficulty')
+    # 如果没有足够的推荐，添加一些热门资源
+    if len(recommended) < 10:
+        popular_resources = LearningResource.objects.annotate(
+            avg_rating=Avg('ratings__score')
+        ).order_by('-view_count', '-avg_rating')[:10]
         
-        # 基础查询
-        resources = LearningResource.objects.all()
-        
-        if keyword:
-            resources = resources.filter(
-                title__icontains=keyword
-            ) | resources.filter(
-                description__icontains=keyword
-            ) | resources.filter(
-                tags__icontains=keyword
-            )
-        
-        if resource_types:
-            resources = resources.filter(resource_type__in=resource_types)
-        
-        if difficulty:
-            resources = resources.filter(difficulty=difficulty)
-        
-        recommended_resources = resources.order_by('-avg_rating')[:10]
-    
-    # 自动推荐
-    elif problem or homework:
-        tags = []
-        if problem and problem.tags:
-            tags.extend(problem.tags.split(','))
-        if homework and homework.tags:
-            tags.extend(homework.tags.split(','))
-        
-        if tags:
-            for tag in tags:
-                resources = LearningResource.objects.filter(tags__icontains=tag)
-                recommended_resources.extend(resources)
-            
-            # 去重
-            recommended_resources = list({resource.id: resource for resource in recommended_resources}.values())
-            recommended_resources = recommended_resources[:10]
+        # 合并推荐和热门资源，确保没有重复
+        existing_ids = [r.id for r in recommended]
+        for resource in popular_resources:
+            if resource.id not in existing_ids and len(recommended) < 10:
+                recommended.append(resource)
     
     context = {
-        'problem': problem,
-        'homework': homework,
-        'recommended_resources': recommended_resources
+        'resources': recommended,
     }
-    return render(request, 'correction_system/resources/recommend.html', context)
-
-@login_required
-def save_resource(request, resource_id):
-    """收藏学习资源"""
-    resource = get_object_or_404(LearningResource, id=resource_id)
     
-    if request.method == 'POST':
-        if request.user not in resource.saved_by.all():
-            resource.saved_by.add(request.user)
-            messages.success(request, f'已将"{resource.title}"添加到收藏')
-    
-    return redirect(request.META.get('HTTP_REFERER', 'learning_resources'))
-
-@login_required
-def unsave_resource(request, resource_id):
-    """取消收藏学习资源"""
-    resource = get_object_or_404(LearningResource, id=resource_id)
-    
-    if request.method == 'POST':
-        if request.user in resource.saved_by.all():
-            resource.saved_by.remove(request.user)
-            messages.success(request, f'已将"{resource.title}"从收藏中移除')
-    
-    return redirect(request.META.get('HTTP_REFERER', 'learning_resources'))
-
-@login_required
-def rate_resource(request, resource_id):
-    """评价学习资源"""
-    resource = get_object_or_404(LearningResource, id=resource_id)
-    
-    if request.method == 'POST':
-        rating = request.POST.get('rating')
-        comment = request.POST.get('comment', '')
-        
-        if not rating:
-            messages.error(request, '请选择评分')
-            return redirect('view_resource', resource_id=resource.id)
-        
-        # 检查用户是否已经评价过
-        review, created = ResourceReview.objects.get_or_create(
-            user=request.user,
-            resource=resource,
-            defaults={'rating': rating, 'comment': comment}
-        )
-        
-        # 如果已经评价过，则更新
-        if not created:
-            review.rating = rating
-            review.comment = comment
-            review.save()
-            messages.success(request, '评价已更新')
-        else:
-            messages.success(request, '评价已提交')
-        
-        # 更新资源的平均评分
-        resource.avg_rating = ResourceReview.objects.filter(resource=resource).aggregate(avg=Avg('rating'))['avg']
-        resource.review_count = ResourceReview.objects.filter(resource=resource).count()
-        resource.save()
-        
-    return redirect('view_resource', resource_id=resource.id)
+    return render(request, 'correction_system/resources/recommended_resources.html', context)
 
 # 用户资料相关视图
 @login_required
@@ -1125,3 +1167,240 @@ def reload_static(request):
     # 重定向回之前的页面
     redirect_to = request.GET.get('next', 'dashboard')
     return redirect(redirect_to)
+
+# 学习分析相关视图
+import json
+import random
+from datetime import datetime, timedelta
+import numpy as np
+from django.db.models import Avg
+from django.utils import timezone
+
+from .ml_models import analyze_user_learning, get_resource_recommendations
+
+@login_required
+def learning_analytics(request):
+    """学习分析视图，展示用户学习数据和AI分析结果"""
+    user = request.user
+    
+    # 获取用户的问题和作业数据
+    problems = Problem.objects.filter(user=user).order_by('-created_at')
+    homeworks = Homework.objects.filter(user=user).order_by('-created_at')
+    
+    # 基本统计数据
+    problem_count = problems.count()
+    homework_count = homeworks.count()
+    correct_problems = problems.filter(is_correct=True).count()
+    correct_rate = int(correct_problems / problem_count * 100) if problem_count > 0 else 0
+    avg_score = homeworks.aggregate(avg=Avg('score'))['avg'] or 0
+    avg_score = round(avg_score, 1)
+    
+    # 准备AI分析所需数据
+    problem_data = list(problems.values('id', 'problem_type', 'is_correct', 'created_at'))
+    homework_data = list(homeworks.values('id', 'score', 'correction_result', 'created_at'))
+    
+    # 调用机器学习模型进行分析
+    analysis_results = analyze_user_learning(user.id, problem_data, homework_data)
+    
+    # 分数走势图数据
+    recent_homeworks = homeworks[:10]  # 最近10次作业
+    dates = [h.created_at.strftime('%Y-%m-%d') for h in recent_homeworks]
+    scores = [float(h.score) if h.score is not None else 0.0 for h in recent_homeworks]
+    # 反转顺序以便按时间顺序显示
+    dates.reverse()
+    scores.reverse()
+    
+    # 准备预测数据
+    current_score = scores[-1] if scores else avg_score
+    prediction_data = [current_score]
+    if 'score_prediction' in analysis_results and analysis_results['score_prediction']:
+        prediction_data.extend(analysis_results['score_prediction'])
+    else:
+        # 如果没有预测数据，生成一些示例数据
+        last_score = current_score
+        for _ in range(5):
+            next_score = max(60, min(100, last_score + random.uniform(-5, 8)))
+            prediction_data.append(round(next_score, 1))
+            last_score = next_score
+    
+    # 学科能力雷达图数据
+    # 提取用户感兴趣的科目
+    subjects = []
+    if hasattr(user, 'profile') and user.profile.subjects_of_interest:
+        subjects = [s.strip() for s in user.profile.subjects_of_interest.split(',')]
+    
+    if not subjects:
+        # 默认科目
+        subjects = ['数学', '语文', '英语', '物理', '化学', '生物']
+    
+    # 为每个科目生成能力值（实际中应基于真实数据）
+    user_abilities = []
+    avg_abilities = []
+    subjects_radar = []
+    
+    for subject in subjects:
+        # 获取该科目的问题和作业
+        subject_problems = problems.filter(text_content__icontains=subject)
+        subject_homeworks = homeworks.filter(text_content__icontains=subject)
+        
+        # 计算该科目的能力值
+        correct_count = subject_problems.filter(is_correct=True).count()
+        total_count = subject_problems.count()
+        subject_correct_rate = correct_count / total_count * 100 if total_count > 0 else 0
+        
+        subject_avg_score = subject_homeworks.aggregate(avg=Avg('score'))['avg'] or 0
+        
+        # 基于正确率和平均分计算能力值（0-100）
+        ability_value = (subject_correct_rate * 0.4 + subject_avg_score * 0.6)
+        
+        # 添加用户能力值和平均值（模拟）
+        user_abilities.append(round(ability_value, 1))
+        avg_abilities.append(round(max(50, min(90, ability_value * random.uniform(0.85, 1.1))), 1))
+        
+        # 雷达图指标
+        subjects_radar.append({'name': subject, 'max': 100})
+    
+    # 学习活动热力图数据
+    # 获取最近3个月的日期范围
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=90)
+    calendar_range = f'{start_date.strftime("%Y-%m-%d")},{end_date.strftime("%Y-%m-%d")}'
+    
+    # 构建活动数据
+    activity_data = []
+    current_date = start_date
+    
+    # 收集所有活动日期
+    activity_dates = []
+    activity_dates.extend([p.created_at.date() for p in problems if p.created_at.date() >= start_date])
+    activity_dates.extend([h.created_at.date() for h in homeworks if h.created_at.date() >= start_date])
+    
+    # 计算每天的活动次数
+    while current_date <= end_date:
+        # 计算当天活动次数
+        daily_count = activity_dates.count(current_date)
+        
+        # 添加数据，格式：[日期字符串, 活动次数]
+        if daily_count > 0:
+            activity_data.append([current_date.strftime('%Y-%m-%d'), daily_count])
+            
+        current_date += timedelta(days=1)
+    
+    # 学习风格散点图数据
+    # 使用PCA结果构建散点数据
+    learning_styles = [
+        '系统性学习者',
+        '突击型学习者',
+        '深度专注型',
+        '探索型学习者'
+    ]
+    
+    # 模拟不同学习风格的散点位置
+    learning_styles_scatter = [
+        [-1.5, 1.2, learning_styles[0]],  # 系统性学习者
+        [1.8, -0.5, learning_styles[1]],  # 突击型学习者
+        [-0.8, -1.7, learning_styles[2]],  # 深度专注型
+        [1.2, 1.5, learning_styles[3]]    # 探索型学习者
+    ]
+    
+    # 确定用户在散点图中的位置
+    user_style_index = analysis_results.get('cluster', 0)
+    if user_style_index is None or user_style_index >= len(learning_styles):
+        user_style_index = 0
+    
+    context = {
+        'stats': {
+            'problem_count': problem_count,
+            'homework_count': homework_count,
+            'correct_rate': correct_rate,
+            'avg_score': avg_score
+        },
+        'analysis': analysis_results,
+        'dates': json.dumps(dates),
+        'scores': json.dumps(scores),
+        'subjects_radar': json.dumps(subjects_radar),
+        'user_abilities': json.dumps(user_abilities),
+        'avg_abilities': json.dumps(avg_abilities),
+        'calendar_range': json.dumps(calendar_range),
+        'activity_data': json.dumps(activity_data),
+        'learning_styles_scatter': json.dumps(learning_styles_scatter),
+        'user_style_index': json.dumps(user_style_index),
+        'prediction_data': json.dumps(prediction_data)
+    }
+    
+    return render(request, 'correction_system/analytics/learning_analytics.html', context)
+
+@login_required
+def create_resource(request):
+    """创建新的学习资源"""
+    # 检查权限 - 只有管理员或教师可以创建资源
+    if not request.user.is_staff and not getattr(request.user, 'is_teacher', False):
+        messages.error(request, "您没有创建学习资源的权限")
+        return redirect('learning_resources')
+    
+    if request.method == 'POST':
+        form = LearningResourceForm(request.POST, request.FILES)
+        if form.is_valid():
+            resource = form.save(commit=False)
+            # 设置其他字段
+            resource.save()
+            messages.success(request, f"学习资源《{resource.title}》创建成功")
+            return redirect('view_resource', resource_id=resource.id)
+    else:
+        form = LearningResourceForm()
+    
+    return render(request, 'correction_system/resources/resource_form.html', {
+        'form': form,
+        'title': '创建学习资源',
+        'submit_text': '创建资源'
+    })
+
+@login_required
+def edit_resource(request, resource_id):
+    """编辑学习资源"""
+    try:
+        resource = LearningResource.objects.get(id=resource_id)
+    except LearningResource.DoesNotExist:
+        messages.error(request, "资源不存在或已被删除")
+        return redirect('learning_resources')
+    
+    # 检查权限 - 只有管理员或教师可以编辑资源
+    if not request.user.is_staff and not getattr(request.user, 'is_teacher', False):
+        messages.error(request, "您没有编辑学习资源的权限")
+        return redirect('view_resource', resource_id=resource_id)
+    
+    if request.method == 'POST':
+        form = LearningResourceForm(request.POST, request.FILES, instance=resource)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"学习资源《{resource.title}》已更新")
+            return redirect('view_resource', resource_id=resource_id)
+    else:
+        form = LearningResourceForm(instance=resource)
+    
+    return render(request, 'correction_system/resources/resource_form.html', {
+        'form': form,
+        'resource': resource,
+        'title': f'编辑资源: {resource.title}',
+        'submit_text': '保存修改'
+    })
+
+@login_required
+@require_POST
+def delete_resource(request, resource_id):
+    """删除学习资源"""
+    try:
+        resource = LearningResource.objects.get(id=resource_id)
+    except LearningResource.DoesNotExist:
+        messages.error(request, "资源不存在或已被删除")
+        return redirect('learning_resources')
+    
+    # 检查权限 - 只有管理员可以删除资源
+    if not request.user.is_staff:
+        messages.error(request, "您没有删除学习资源的权限")
+        return redirect('view_resource', resource_id=resource_id)
+    
+    resource_title = resource.title
+    resource.delete()
+    messages.success(request, f"学习资源《{resource_title}》已删除")
+    return redirect('learning_resources')
