@@ -2,6 +2,7 @@ from django.urls import path
 from .views import *  # 这里确保导入所有视图
 from django.conf import settings
 from .views.analytics import learning_analytics
+from correction_system.views.utils import mark_messages_read
 
 urlpatterns = [
     # 认证相关URL
@@ -48,6 +49,9 @@ urlpatterns = [
     
     # 分析页面
     path('analytics/learning/', learning_analytics, name='learning_analytics'),
+
+    # 工具类URL
+    path('utils/mark-messages-read/', mark_messages_read, name='mark_messages_read'),
 ]
 
 # 在DEBUG模式下添加静态文件重新加载路径
